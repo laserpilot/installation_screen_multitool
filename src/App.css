@@ -64,6 +64,18 @@ input[type=number], select {
 
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 
+.field { margin: 10px 0 2px; }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.num-sm { width: 80px; }
+.slider { width: 100%; margin-top: 8px; accent-color: var(--accent); }
+
+.persona-group { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.persona-group button { text-align: left; }
+.persona-group button.on { background: var(--accent); color: #04121f; font-weight: 600; border-color: var(--accent); }
+
+.check { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 13px; color: var(--text); cursor: pointer; }
+.check input { width: auto; }
+
 button {
   cursor: pointer; font: inherit; border-radius: 6px;
   border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
@@ -107,6 +119,29 @@ button.ghost { width: 100%; margin-top: 6px; background: transparent; }
 .metric { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
 .metric dt { color: var(--muted); font-size: 11px; }
 .metric dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; }
+
+/* ---- help ---- */
+.help { padding: 0; overflow: hidden; }
+.help-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: transparent; border: 0; border-radius: 0; padding: 12px 14px;
+  font-weight: 600; color: var(--text); font-size: 13px;
+}
+.help-head:hover { border: 0; background: var(--panel-2); }
+.help-head .chev { color: var(--muted); }
+.help-body { padding: 0 14px 12px; color: var(--muted); font-size: 12.5px; }
+.help-body p { margin: 8px 0; }
+.help-body ul { margin: 8px 0; padding-left: 16px; }
+.help-body li { margin: 5px 0; }
+.help-body b { color: var(--text); }
+
+.twod-wrap { position: absolute; inset: 0; background: #eef1f5; padding: 18px; }
+.elevation { width: 100%; height: 100%; display: block; }
+.export-btn {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+}
+.export-btn:hover { border-color: var(--accent); }
 
 .fp-hint {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);

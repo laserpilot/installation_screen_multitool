@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local model sources / backups (the optimized .glb in public/ are what ship)
+.model-backups
+*.blend
+*.blend1
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

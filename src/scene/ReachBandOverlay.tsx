@@ -14,19 +14,21 @@ export function ReachBandOverlay({ width }: { width: number }) {
     <group>
       <mesh position={[0, cy, 0.015]}>
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial color="#2ecc71" transparent opacity={0.12} />
+        <meshBasicMaterial color="#19a05a" transparent opacity={0.16} />
       </mesh>
       {/* boundary lines */}
       {[low, high].map((y) => (
         <mesh key={y} position={[0, y, 0.02]}>
-          <planeGeometry args={[w, 0.02]} />
-          <meshBasicMaterial color="#2ecc71" transparent opacity={0.5} />
+          <planeGeometry args={[w, 0.025]} />
+          <meshBasicMaterial color="#0f7a40" transparent opacity={0.65} />
         </mesh>
       ))}
       <Text
         position={[-w / 2 - 0.4, high, 0.05]}
         fontSize={0.22}
-        color="#2ecc71"
+        color="#0c6e39"
+        outlineWidth={0.01}
+        outlineColor="#ffffff"
         anchorX="right"
         anchorY="middle"
       >
@@ -35,7 +37,9 @@ export function ReachBandOverlay({ width }: { width: number }) {
       <Text
         position={[-w / 2 - 0.4, low, 0.05]}
         fontSize={0.22}
-        color="#2ecc71"
+        color="#0c6e39"
+        outlineWidth={0.01}
+        outlineColor="#ffffff"
         anchorX="right"
         anchorY="middle"
       >

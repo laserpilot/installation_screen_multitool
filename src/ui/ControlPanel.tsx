@@ -59,6 +59,33 @@ export function ControlPanel() {
         />
       </Row>
 
+      <Row label="Orientation">
+        <span className="seg">
+          <button
+            className={s.aspectW >= s.aspectH ? 'on' : ''}
+            onClick={() => {
+              if (s.aspectW < s.aspectH) {
+                s.set('aspectW', s.aspectH);
+                s.set('aspectH', s.aspectW);
+              }
+            }}
+          >
+            Landscape
+          </button>
+          <button
+            className={s.aspectW < s.aspectH ? 'on' : ''}
+            onClick={() => {
+              if (s.aspectW > s.aspectH) {
+                s.set('aspectW', s.aspectH);
+                s.set('aspectH', s.aspectW);
+              }
+            }}
+          >
+            Portrait
+          </button>
+        </span>
+      </Row>
+
       <Row label="Aspect">
         <span className="aspect">
           <input
@@ -77,13 +104,26 @@ export function ControlPanel() {
         </span>
       </Row>
 
-      <Row label={`Mount — bottom edge AFF (${u})`}>
+      <div className="field">
+        <div className="field-head">
+          <span className="row-label">Mount — bottom edge AFF ({u})</span>
+          <input
+            className="num-sm"
+            type="number"
+            value={round(fromInches(s.mountBottom, units))}
+            onChange={(e) => s.set('mountBottom', toInches(Number(e.target.value), units))}
+          />
+        </div>
         <input
-          type="number"
+          className="slider"
+          type="range"
+          min={0}
+          max={units === 'metric' ? 244 : 96}
+          step={units === 'metric' ? 1 : 0.5}
           value={round(fromInches(s.mountBottom, units))}
           onChange={(e) => s.set('mountBottom', toInches(Number(e.target.value), units))}
         />
-      </Row>
+      </div>
       <button className="ghost" onClick={s.applyRecommendedMount}>
         Use recommended mount height
       </button>
@@ -107,18 +147,29 @@ export function ControlPanel() {
         </span>
       </Row>
 
-      <Row label="Viewer">
-        <select
-          value={s.personaId}
-          onChange={(e) => s.set('personaId', e.target.value as PersonaId)}
-        >
+      <div className="field">
+        <span className="row-label">Viewer</span>
+        <div className="persona-group">
           {Object.values(PERSONAS).map((p) => (
-            <option key={p.id} value={p.id}>
+            <button
+              key={p.id}
+              className={s.personaId === p.id ? 'on' : ''}
+              onClick={() => s.set('personaId', p.id as PersonaId)}
+            >
               {p.label}
-            </option>
+            </button>
           ))}
-        </select>
-      </Row>
+        </div>
+      </div>
+
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={s.showReach}
+          onChange={(e) => s.set('showReach', e.target.checked)}
+        />
+        Show reach zone on screen
+      </label>
 
       {s.mode === 'view' ? (
         <Row label={`Viewing distance (${u})`}>

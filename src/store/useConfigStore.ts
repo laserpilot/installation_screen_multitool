@@ -6,6 +6,7 @@ export type Units = 'us' | 'metric';
 export type Mode = 'touch' | 'view';
 export type ResMode = 'pixels' | 'pitch';
 export type CameraView = 'orbit' | 'first-person';
+export type StageView = '3d' | '2d';
 
 export interface ConfigState {
   // --- screen ---
@@ -26,7 +27,9 @@ export interface ConfigState {
 
   // --- ui ---
   units: Units;
+  stageView: StageView;
   cameraView: CameraView;
+  showReach: boolean;
   contentUrl: string | null;
 
   // --- actions ---
@@ -51,7 +54,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   pitchMm: 2.5,
 
   units: 'us',
+  stageView: '3d',
   cameraView: 'orbit',
+  showReach: true,
   contentUrl: null,
 
   set: (key, value) => set({ [key]: value } as Partial<ConfigState>),

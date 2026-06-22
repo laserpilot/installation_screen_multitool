@@ -3,10 +3,12 @@ import { sizeFromDiagonal } from '../ergonomics/engine';
 import { useConfigStore } from '../store/useConfigStore';
 import { avatarLayout } from './avatarLayout';
 import { Bone } from './Bone';
+import { ReachEnvelope } from './ReachEnvelope';
+import { Wheelchair } from './Wheelchair';
 import { f } from './scale';
 
 const SKIN = '#d9b08c';
-const BODY = '#5b6b7a';
+const BODY = '#3f4a57';
 
 export function Avatar() {
   const { personaId, mode, viewingDistance, diagonal, aspectW, aspectH, mountBottom } =
@@ -21,7 +23,6 @@ export function Avatar() {
 
   const hipH = persona.seated ? 19 : 0.52 * persona.statureHeight;
   const shoulderH = persona.shoulderHeight;
-  const handColor = L.touches ? SKIN : '#e06c6c';
 
   return (
     <group>
@@ -47,12 +48,10 @@ export function Avatar() {
         color={BODY}
       />
 
+      <ReachEnvelope shoulder={L.shoulder} hand={L.hand} armLen={L.armLen} touches={L.touches} />
+
       {/* Reaching arm (toward screen) */}
       <Bone a={L.shoulder} b={L.hand} radius={f(2)} color={BODY} />
-      <mesh position={L.hand} castShadow>
-        <sphereGeometry args={[f(1.8), 12, 12]} />
-        <meshStandardMaterial color={handColor} />
-      </mesh>
 
       {/* Resting arm */}
       <Bone
@@ -63,7 +62,10 @@ export function Avatar() {
       />
 
       {persona.seated ? (
-        <SeatedLegs z={z} hipH={hipH} />
+        <>
+          <SeatedLegs z={z} hipH={hipH} />
+          <Wheelchair z={z} seatIn={hipH} />
+        </>
       ) : (
         <StandingLegs z={z} hipH={hipH} />
       )}
@@ -84,27 +86,10 @@ function SeatedLegs({ z, hipH }: { z: number; hipH: number }) {
   const knee = z - f(15);
   return (
     <>
-      {/* thighs forward (toward wall, -z) */}
       <Bone a={[-f(4), f(hipH), z]} b={[-f(4), f(hipH), knee]} radius={f(2.6)} color={BODY} />
       <Bone a={[f(4), f(hipH), z]} b={[f(4), f(hipH), knee]} radius={f(2.6)} color={BODY} />
-      {/* shins down */}
       <Bone a={[-f(4), f(hipH), knee]} b={[-f(4), f(5), knee]} radius={f(2.4)} color={BODY} />
       <Bone a={[f(4), f(hipH), knee]} b={[f(4), f(5), knee]} radius={f(2.4)} color={BODY} />
-      {/* simple chair: seat + back + wheels */}
-      <mesh position={[0, f(hipH - 2), z + f(1)]}>
-        <boxGeometry args={[f(20), f(2), f(20)]} />
-        <meshStandardMaterial color="#2b3440" />
-      </mesh>
-      <mesh position={[0, f(hipH + 9), z + f(10)]}>
-        <boxGeometry args={[f(20), f(22), f(2)]} />
-        <meshStandardMaterial color="#2b3440" />
-      </mesh>
-      {[-f(11), f(11)].map((x) => (
-        <mesh key={x} position={[x, f(11), z + f(2)]} rotation={[0, 0, Math.PI / 2]}>
-          <torusGeometry args={[f(11), f(1), 10, 24]} />
-          <meshStandardMaterial color="#1a2026" />
-        </mesh>
-      ))}
     </>
   );
 }

@@ -12,6 +12,8 @@ export interface AvatarLayout {
   hand: [number, number, number];
   /** True if the hand actually reached the wall (touch). */
   touches: boolean;
+  /** Arm length in world units (feet) — max reach radius from the shoulder. */
+  armLen: number;
 }
 
 /**
@@ -46,5 +48,5 @@ export function avatarLayout(
     shoulder[1] + dy * t,
     shoulder[2] + dz * t,
   ];
-  return { z, eye, shoulder, hand, touches: len <= armLen + 1e-6 };
+  return { z, eye, shoulder, hand, touches: len <= armLen + 1e-6, armLen };
 }

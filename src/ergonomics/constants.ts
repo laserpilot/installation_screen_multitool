@@ -14,9 +14,20 @@ export const ADA_REACH_HIGH = 48; // in
 // --- Visual angle thresholds (horizontal subtended angle of the screen) -----
 // Below "ideal" you can take the whole screen in at a glance; above "bad" you
 // physically cannot see the edges without scanning your head.
-export const ANGLE_IDEAL = 30; // deg
-export const ANGLE_OK = 40; // deg
-export const ANGLE_CAUTION = 50; // deg
+// Two regimes, because they are genuinely different tasks:
+//  - VIEW: you take in the whole image from a distance (signage, video,
+//    dashboards). Comfort wants the screen inside a narrow cone.
+//  - TOUCH: you stand at arm's length and interact with one region at a time,
+//    scanning your eyes/head locally. Wide angles are normal and fine here;
+//    only an absurdly large screen up close is a problem.
+export const ANGLE_THRESHOLDS = {
+  view: { ideal: 30, ok: 40, caution: 55 },
+  touch: { ideal: 55, ok: 85, caution: 105 },
+} as const;
+
+// Target subtended angle (deg) used to recommend how far to stand back to take
+// the whole screen in at once.
+export const COMFORT_VIEW_ANGLE = 40;
 
 // --- Visual acuity ----------------------------------------------------------
 // The eye resolves ~1 arcminute => 60 pixels per degree is "retina".
@@ -72,7 +83,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
   },
   wheelchair: {
     id: 'wheelchair',
-    label: 'Wheelchair user (seated)',
+    label: 'Seated user',
     eyeHeight: 47,
     reachHigh: 48, // ADA unobstructed forward/side reach cap
     reachLow: 15,

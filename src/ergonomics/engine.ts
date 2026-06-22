@@ -5,9 +5,8 @@
 import {
   ADA_REACH_HIGH,
   ADA_REACH_LOW,
-  ANGLE_CAUTION,
-  ANGLE_IDEAL,
-  ANGLE_OK,
+  ANGLE_THRESHOLDS,
+  COMFORT_VIEW_ANGLE,
   IN_PER_M,
   MM_PER_IN,
   PPD_ACCEPTABLE,
@@ -17,6 +16,8 @@ import {
   type Persona,
   type PersonaId,
 } from './constants';
+
+export type Mode = 'touch' | 'view';
 
 const DEG = 180 / Math.PI;
 
@@ -48,11 +49,21 @@ export function subtendedAngle(size: number, distance: number): number {
   return 2 * Math.atan(size / (2 * distance)) * DEG;
 }
 
-export function classifyAngle(deg: number): AngleClass {
-  if (deg <= ANGLE_IDEAL) return 'ideal';
-  if (deg <= ANGLE_OK) return 'ok';
-  if (deg <= ANGLE_CAUTION) return 'caution';
+/**
+ * Classify a subtended angle against the thresholds for the use mode. Touch
+ * tolerates much wider angles than viewing — see ANGLE_THRESHOLDS.
+ */
+export function classifyAngle(deg: number, mode: Mode = 'view'): AngleClass {
+  const t = ANGLE_THRESHOLDS[mode];
+  if (deg <= t.ideal) return 'ideal';
+  if (deg <= t.ok) return 'ok';
+  if (deg <= t.caution) return 'caution';
   return 'bad';
+}
+
+/** Distance (in) at which a screen of `width` subtends COMFORT_VIEW_ANGLE. */
+export function comfortableStandoff(width: number): number {
+  return width / (2 * Math.tan((COMFORT_VIEW_ANGLE / 2) * (Math.PI / 180)));
 }
 
 // --- Reach / mounting -------------------------------------------------------
@@ -93,21 +104,25 @@ export function reachBand(
 }
 
 /**
- * Recommended bottom-edge height so interactive content sits in the ADA band.
- * If the screen is shorter than the band, center it in the band; otherwise
- * drop the bottom to the band floor so the reachable controls live low.
+ * Recommended bottom-edge height.
+ *  - touch: fit interactive content in the ADA 15–48" band (center a short
+ *    screen in the band; drop a tall screen's bottom to the band floor so the
+ *    reachable controls live low).
+ *  - view: center the screen on the viewer's eye line.
  */
 export function recommendMountBottom(
   screenHeight: number,
-  bandLow = ADA_REACH_LOW,
-  bandHigh = ADA_REACH_HIGH,
+  mode: Mode = 'touch',
+  eyeHeight = 64,
 ): number {
-  const bandSize = bandHigh - bandLow;
-  if (screenHeight <= bandSize) {
-    const center = (bandLow + bandHigh) / 2;
-    return center - screenHeight / 2;
+  if (mode === 'view') {
+    return Math.max(6, eyeHeight - screenHeight / 2);
   }
-  return bandLow;
+  const bandSize = ADA_REACH_HIGH - ADA_REACH_LOW;
+  if (screenHeight <= bandSize) {
+    return (ADA_REACH_LOW + ADA_REACH_HIGH) / 2 - screenHeight / 2;
+  }
+  return ADA_REACH_LOW;
 }
 
 // --- Pixels / resolution ----------------------------------------------------
@@ -167,7 +182,7 @@ export type VerdictLevel = 'good' | 'caution' | 'bad';
 export interface ScreenConfig {
   size: ScreenSize;
   mountBottom: number; // in AFF
-  mode: 'touch' | 'view';
+  mode: Mode;
   /** Used in 'view' mode; in 'touch' mode distance is derived from persona. */
   viewingDistance: number; // in
   personaId: PersonaId;
@@ -190,6 +205,8 @@ export interface Verdict {
   adaReach: ReachResult;
   personaReach: ReachResult;
   recommendedMountBottom: number; // in
+  /** Distance (in) to stand back for a comfortable whole-screen view. */
+  comfortableStandoff: number;
   pixels: PixelMetrics;
   persona: Persona;
 }
@@ -209,26 +226,44 @@ export function verdict(cfg: ScreenConfig): Verdict {
   // 1. Visual angle ----------------------------------------------------------
   const hAngle = subtendedAngle(cfg.size.width, distance);
   const vAngle = subtendedAngle(cfg.size.height, distance);
-  const angleClass = classifyAngle(hAngle);
-  if (angleClass === 'ideal') {
-    reasons.push({
-      level: 'good',
-      text: `Screen subtends ${hAngle.toFixed(0)}° — comfortably taken in at a glance.`,
-    });
-  } else if (angleClass === 'ok') {
-    reasons.push({
-      level: 'good',
-      text: `Screen subtends ${hAngle.toFixed(0)}° — fine for reading, near the upper edge of comfort.`,
-    });
-  } else if (angleClass === 'caution') {
-    reasons.push({
-      level: 'caution',
-      text: `Screen subtends ${hAngle.toFixed(0)}° — you must scan your head to see the edges.`,
-    });
+  const angleClass = classifyAngle(hAngle, cfg.mode);
+  const deg = `${hAngle.toFixed(0)}°`;
+  if (cfg.mode === 'touch') {
+    // Touch tolerates wide angles — you interact with one region at a time.
+    if (angleClass === 'ideal' || angleClass === 'ok') {
+      reasons.push({
+        level: 'good',
+        text: `At arm's length the screen subtends ${deg} — comfortable for a touch interface.`,
+      });
+    } else if (angleClass === 'caution') {
+      reasons.push({
+        level: 'caution',
+        text: `Subtends ${deg} at arm's length — usable for touch, but large; reaching one corner puts the other well into your periphery.`,
+      });
+    } else {
+      reasons.push({
+        level: 'bad',
+        text: `Subtends ${deg} at arm's length — too big to touch comfortably; you can't see the part you're reaching for.`,
+      });
+    }
   } else {
+    if (angleClass === 'ideal') {
+      reasons.push({ level: 'good', text: `Screen subtends ${deg} — comfortably taken in at a glance.` });
+    } else if (angleClass === 'ok') {
+      reasons.push({ level: 'good', text: `Screen subtends ${deg} — fine for viewing, near the upper edge of comfort.` });
+    } else if (angleClass === 'caution') {
+      reasons.push({ level: 'caution', text: `Screen subtends ${deg} — you must scan your head to see the edges.` });
+    } else {
+      reasons.push({ level: 'bad', text: `Screen subtends ${deg} at this distance — too large to take in without constant head movement.` });
+    }
+  }
+
+  // Standoff guidance: how far back to take the whole screen in at once.
+  const standoff = comfortableStandoff(cfg.size.width);
+  if (cfg.mode === 'touch' && angleClass !== 'ideal' && angleClass !== 'ok') {
     reasons.push({
-      level: 'bad',
-      text: `Screen subtends ${hAngle.toFixed(0)}° at this distance — too large to see without constant head movement.`,
+      level: 'good',
+      text: `To take in the whole screen at once, stand back ~${(standoff / 12).toFixed(1)} ft.`,
     });
   }
 
@@ -245,26 +280,29 @@ export function verdict(cfg: ScreenConfig): Verdict {
     persona.reachLow,
     persona.reachHigh,
   );
-  const recommendedMountBottom = recommendMountBottom(cfg.size.height);
+  const recommendedMountBottom = recommendMountBottom(
+    cfg.size.height,
+    cfg.mode,
+    persona.eyeHeight,
+  );
 
   if (cfg.mode === 'touch') {
-    const pctReachable = Math.round(adaReach.reachableFraction * 100);
-    if (adaReach.reachableFraction >= 0.999) {
+    if (adaReach.reachableFraction >= 0.95) {
       reasons.push({
         level: 'good',
-        text: `Entire screen falls within the 15–48" ADA reach band.`,
+        text: `Essentially the whole screen sits within the 15–48" ADA reach band.`,
       });
     } else {
-      const pctOut = 100 - pctReachable;
+      const pctOut = Math.round((1 - adaReach.reachableFraction) * 100);
       reasons.push({
-        level: adaReach.reachableFraction >= 0.5 ? 'caution' : 'bad',
-        text: `${pctOut}% of the screen is outside the 15–48" ADA reach band — those touch targets can't be reached by all users.`,
+        level: gradeReach(adaReach.reachableFraction),
+        text: `${pctOut}% of the screen is outside the 15–48" ADA reach band — any touch targets there can't be reached by all users.`,
       });
     }
-    if (personaReach.reachableFraction < 0.999) {
+    if (personaReach.reachableFraction < 0.95) {
       const pctOut = Math.round((1 - personaReach.reachableFraction) * 100);
       reasons.push({
-        level: personaReach.reachableFraction >= 0.5 ? 'caution' : 'bad',
+        level: gradeReach(personaReach.reachableFraction),
         text: `${persona.label} physically can't reach ${pctOut}% of the screen.`,
       });
     }
@@ -323,7 +361,15 @@ export function verdict(cfg: ScreenConfig): Verdict {
     adaReach,
     personaReach,
     recommendedMountBottom,
+    comfortableStandoff: standoff,
     pixels,
     persona,
   };
+}
+
+/** Grade a reachable fraction: ≥0.95 good, ≥0.7 caution, else bad. */
+function gradeReach(fraction: number): VerdictLevel {
+  if (fraction >= 0.95) return 'good';
+  if (fraction >= 0.7) return 'caution';
+  return 'bad';
 }
