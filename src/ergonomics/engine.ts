@@ -11,10 +11,13 @@ import {
   MM_PER_IN,
   PPD_ACCEPTABLE,
   PPD_RETINA,
+  PPD_THRESHOLDS,
   PERSONAS,
+  REACH_THRESHOLDS,
   RETINA_PITCH_MULTIPLE,
   type Persona,
   type PersonaId,
+  type Strictness,
 } from './constants';
 
 export type Mode = 'touch' | 'view';
@@ -50,11 +53,15 @@ export function subtendedAngle(size: number, distance: number): number {
 }
 
 /**
- * Classify a subtended angle against the thresholds for the use mode. Touch
- * tolerates much wider angles than viewing — see ANGLE_THRESHOLDS.
+ * Classify how much of the view the screen fills, against the thresholds for the
+ * use mode and strictness. Touch tolerates much wider angles than viewing.
  */
-export function classifyAngle(deg: number, mode: Mode = 'view'): AngleClass {
-  const t = ANGLE_THRESHOLDS[mode];
+export function classifyAngle(
+  deg: number,
+  mode: Mode = 'view',
+  strictness: Strictness = 'realistic',
+): AngleClass {
+  const t = ANGLE_THRESHOLDS[strictness][mode];
   if (deg <= t.ideal) return 'ideal';
   if (deg <= t.ok) return 'ok';
   if (deg <= t.caution) return 'caution';
@@ -188,6 +195,8 @@ export interface ScreenConfig {
   personaId: PersonaId;
   horizontalPixels?: number;
   pitchMm?: number;
+  /** Judgment calibration; defaults to 'realistic'. */
+  strictness?: Strictness;
 }
 
 export interface VerdictReason {
@@ -220,41 +229,42 @@ export function effectiveDistance(cfg: ScreenConfig, persona: Persona): number {
 
 export function verdict(cfg: ScreenConfig): Verdict {
   const persona = PERSONAS[cfg.personaId];
+  const strictness = cfg.strictness ?? 'realistic';
   const distance = effectiveDistance(cfg, persona);
   const reasons: VerdictReason[] = [];
 
-  // 1. Visual angle ----------------------------------------------------------
+  // 1. How much of your view the screen fills --------------------------------
   const hAngle = subtendedAngle(cfg.size.width, distance);
   const vAngle = subtendedAngle(cfg.size.height, distance);
-  const angleClass = classifyAngle(hAngle, cfg.mode);
-  const deg = `${hAngle.toFixed(0)}°`;
+  const angleClass = classifyAngle(hAngle, cfg.mode, strictness);
+  const fills = `fills ${hAngle.toFixed(0)}° of your view`;
   if (cfg.mode === 'touch') {
     // Touch tolerates wide angles — you interact with one region at a time.
     if (angleClass === 'ideal' || angleClass === 'ok') {
       reasons.push({
         level: 'good',
-        text: `At arm's length the screen subtends ${deg} — comfortable for a touch interface.`,
+        text: `At arm's length the screen ${fills} — comfortable for a touch interface.`,
       });
     } else if (angleClass === 'caution') {
       reasons.push({
         level: 'caution',
-        text: `Subtends ${deg} at arm's length — usable for touch, but large; reaching one corner puts the other well into your periphery.`,
+        text: `At arm's length the screen ${fills} — usable for touch, but large; reaching one corner puts the other well into the corner of your eye.`,
       });
     } else {
       reasons.push({
         level: 'bad',
-        text: `Subtends ${deg} at arm's length — too big to touch comfortably; you can't see the part you're reaching for.`,
+        text: `At arm's length the screen ${fills} — too big to touch comfortably; you can't see the part you're reaching for.`,
       });
     }
   } else {
     if (angleClass === 'ideal') {
-      reasons.push({ level: 'good', text: `Screen subtends ${deg} — comfortably taken in at a glance.` });
+      reasons.push({ level: 'good', text: `The screen ${fills} — comfortably taken in at a glance.` });
     } else if (angleClass === 'ok') {
-      reasons.push({ level: 'good', text: `Screen subtends ${deg} — fine for viewing, near the upper edge of comfort.` });
+      reasons.push({ level: 'good', text: `The screen ${fills} — fine for viewing, near the upper edge of comfort.` });
     } else if (angleClass === 'caution') {
-      reasons.push({ level: 'caution', text: `Screen subtends ${deg} — you must scan your head to see the edges.` });
+      reasons.push({ level: 'caution', text: `The screen ${fills} — you have to turn your head to see the edges.` });
     } else {
-      reasons.push({ level: 'bad', text: `Screen subtends ${deg} at this distance — too large to take in without constant head movement.` });
+      reasons.push({ level: 'bad', text: `The screen ${fills} at this distance — too wide to take in without constant head movement.` });
     }
   }
 
@@ -287,49 +297,50 @@ export function verdict(cfg: ScreenConfig): Verdict {
   );
 
   if (cfg.mode === 'touch') {
-    if (adaReach.reachableFraction >= 0.95) {
+    const reachThresh = REACH_THRESHOLDS[strictness];
+    if (adaReach.reachableFraction >= reachThresh.good) {
       reasons.push({
         level: 'good',
-        text: `Essentially the whole screen sits within the 15–48" ADA reach band.`,
+        text: `The reachable part of the screen sits within the 15–48" ADA range.`,
       });
     } else {
       const pctOut = Math.round((1 - adaReach.reachableFraction) * 100);
       reasons.push({
-        level: gradeReach(adaReach.reachableFraction),
-        text: `${pctOut}% of the screen is outside the 15–48" ADA reach band — any touch targets there can't be reached by all users.`,
+        level: gradeReach(adaReach.reachableFraction, strictness),
+        text: `${pctOut}% of the screen is above/below the 15–48" ADA reach range — keep touch targets out of that zone.`,
       });
     }
-    if (personaReach.reachableFraction < 0.95) {
+    if (personaReach.reachableFraction < reachThresh.good) {
       const pctOut = Math.round((1 - personaReach.reachableFraction) * 100);
       reasons.push({
-        level: gradeReach(personaReach.reachableFraction),
-        text: `${persona.label} physically can't reach ${pctOut}% of the screen.`,
+        level: gradeReach(personaReach.reachableFraction, strictness),
+        text: `${persona.label} can't physically reach ${pctOut}% of the screen.`,
       });
     }
   }
 
-  // 3. Pixels / resolution ---------------------------------------------------
+  // 3. Sharpness / resolution ------------------------------------------------
   const pixels = pixelMetrics(cfg.size.width, distance, {
     horizontalPixels: cfg.horizontalPixels,
     pitchMm: cfg.pitchMm,
   });
   if (pixels.pitchMm > 0) {
-    if (!pixels.acceptable) {
+    const ppdThresh = PPD_THRESHOLDS[strictness];
+    const ppd = pixels.ppd === Infinity ? 9999 : Math.round(pixels.ppd);
+    if (ppd < ppdThresh.visible) {
       reasons.push({
         level: 'bad',
-        text: `At ${(distance / 12).toFixed(1)} ft you resolve only ${pixels.ppd.toFixed(
-          0,
-        )} px/° — well below the 60 px/° "retina" mark; pixels/structure are clearly visible.`,
+        text: `Individual pixels are visible at this distance (${ppd} px/°) — content looks coarse.`,
       });
-    } else if (!pixels.retina) {
+    } else if (ppd < ppdThresh.sharp) {
       reasons.push({
         level: 'caution',
-        text: `${pixels.ppd.toFixed(0)} px/° at this distance — acceptable but not pixel-sharp (60 px/° is retina).`,
+        text: `Sharp enough, though a keen eye up close may catch slight softness (${ppd} px/°).`,
       });
     } else {
       reasons.push({
         level: 'good',
-        text: `${pixels.ppd.toFixed(0)} px/° — pixels are invisible at this distance.`,
+        text: `Looks crisp at this distance — pixels aren't noticeable (${ppd} px/°).`,
       });
     }
     // LED-wall framing when a coarse pitch is involved.
@@ -367,9 +378,10 @@ export function verdict(cfg: ScreenConfig): Verdict {
   };
 }
 
-/** Grade a reachable fraction: ≥0.95 good, ≥0.7 caution, else bad. */
-function gradeReach(fraction: number): VerdictLevel {
-  if (fraction >= 0.95) return 'good';
-  if (fraction >= 0.7) return 'caution';
+/** Grade a reachable fraction against the strictness thresholds. */
+function gradeReach(fraction: number, strictness: Strictness): VerdictLevel {
+  const t = REACH_THRESHOLDS[strictness];
+  if (fraction >= t.good) return 'good';
+  if (fraction >= t.caution) return 'caution';
   return 'bad';
 }

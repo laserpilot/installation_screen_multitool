@@ -11,22 +11,46 @@ export const MM_PER_IN = 25.4;
 export const ADA_REACH_LOW = 15; // in
 export const ADA_REACH_HIGH = 48; // in
 
-// --- Visual angle thresholds (horizontal subtended angle of the screen) -----
-// Below "ideal" you can take the whole screen in at a glance; above "bad" you
-// physically cannot see the edges without scanning your head.
-// Two regimes, because they are genuinely different tasks:
-//  - VIEW: you take in the whole image from a distance (signage, video,
-//    dashboards). Comfort wants the screen inside a narrow cone.
-//  - TOUCH: you stand at arm's length and interact with one region at a time,
-//    scanning your eyes/head locally. Wide angles are normal and fine here;
-//    only an absurdly large screen up close is a problem.
+// Judgment strictness. 'realistic' (default) matches what works in real
+// installs; 'strict' holds to spec-ideal comfort. The user toggles this.
+export type Strictness = 'realistic' | 'strict';
+
+// --- Visual angle thresholds (how much of your view the screen fills, deg) ---
+// Two regimes, genuinely different tasks:
+//  - VIEW: you take in the whole image from a distance (signage, video). Comfort
+//    wants the screen inside a fairly narrow cone.
+//  - TOUCH: you stand at arm's length and work one region at a time, scanning
+//    locally — wide angles are normal here; only a huge screen up close is bad.
+// 'realistic' reflects field practice (e.g. a 55" touchscreen at arm's length —
+// the mall-kiosk standard — is fine); 'strict' is conservative.
 export const ANGLE_THRESHOLDS = {
-  view: { ideal: 30, ok: 40, caution: 55 },
-  touch: { ideal: 55, ok: 85, caution: 105 },
+  realistic: {
+    view: { ideal: 35, ok: 45, caution: 62 },
+    touch: { ideal: 70, ok: 100, caution: 120 },
+  },
+  strict: {
+    view: { ideal: 30, ok: 40, caution: 55 },
+    touch: { ideal: 55, ok: 85, caution: 105 },
+  },
 } as const;
 
-// Target subtended angle (deg) used to recommend how far to stand back to take
-// the whole screen in at once.
+// Pixels-per-degree the eye resolves. 60 ≈ "retina". A screen reads as crisp
+// well below that, especially up close — so 'realistic' only flags real softness.
+export const PPD_THRESHOLDS = {
+  realistic: { sharp: 34, visible: 18 },
+  strict: { sharp: 60, visible: 30 },
+} as const;
+
+// Reachable fraction of the screen height. 'realistic' assumes interactive
+// content lives in the reachable zone, so partial overhang is a caution not a
+// failure; 'strict' wants the whole panel reachable.
+export const REACH_THRESHOLDS = {
+  realistic: { good: 0.85, caution: 0.55 },
+  strict: { good: 0.95, caution: 0.7 },
+} as const;
+
+// Target angle (deg) used to recommend how far to stand back to take the whole
+// screen in at once.
 export const COMFORT_VIEW_ANGLE = 40;
 
 // --- Visual acuity ----------------------------------------------------------

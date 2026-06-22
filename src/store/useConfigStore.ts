@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PersonaId } from '../ergonomics/constants';
+import type { PersonaId, Strictness } from '../ergonomics/constants';
 import { sizeFromDiagonal, verdict, type Verdict } from '../ergonomics/engine';
 
 export type Units = 'us' | 'metric';
@@ -30,6 +30,7 @@ export interface ConfigState {
   stageView: StageView;
   cameraView: CameraView;
   showReach: boolean;
+  strictness: Strictness;
   contentUrl: string | null;
 
   // --- actions ---
@@ -57,6 +58,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   stageView: '3d',
   cameraView: 'orbit',
   showReach: true,
+  strictness: 'realistic',
   contentUrl: null,
 
   set: (key, value) => set({ [key]: value } as Partial<ConfigState>),
@@ -77,6 +79,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       personaId: s.personaId,
       horizontalPixels: s.resMode === 'pixels' ? s.horizontalPixels : undefined,
       pitchMm: s.resMode === 'pitch' ? s.pitchMm : undefined,
+      strictness: s.strictness,
     });
   },
 }));

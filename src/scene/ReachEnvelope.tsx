@@ -5,7 +5,7 @@ import { f } from './scale';
 type P = [number, number, number];
 
 // Just in front of the screen surface (screen plane renders at world z ≈ 0.07).
-const FRONT_Z = 0.09;
+const FRONT_Z = 0.12;
 
 /**
  * Reachable zone, projected onto the wall/screen. The set of wall points the

@@ -60,33 +60,33 @@ describe('subtendedAngle', () => {
   });
 });
 
-describe('classifyAngle — mode-aware thresholds', () => {
-  // view: 30 / 40 / 55
+describe('classifyAngle — strict thresholds', () => {
   it.each([
-    [29, 'ideal'],
-    [30, 'ideal'],
-    [31, 'ok'],
-    [40, 'ok'],
-    [41, 'caution'],
-    [55, 'caution'],
-    [56, 'bad'],
-  ])('view %i° → %s', (deg, cls) => {
+    [30, 'ideal'], [31, 'ok'], [40, 'ok'], [41, 'caution'], [55, 'caution'], [56, 'bad'],
+  ])('strict view %i° → %s', (deg, cls) => {
+    expect(classifyAngle(deg, 'view', 'strict')).toBe(cls);
+  });
+  it.each([
+    [55, 'ideal'], [56, 'ok'], [85, 'ok'], [86, 'caution'], [105, 'caution'], [106, 'bad'],
+  ])('strict touch %i° → %s', (deg, cls) => {
+    expect(classifyAngle(deg, 'touch', 'strict')).toBe(cls);
+  });
+});
+
+describe('classifyAngle — realistic thresholds (default)', () => {
+  it.each([
+    [35, 'ideal'], [36, 'ok'], [45, 'ok'], [46, 'caution'], [62, 'caution'], [63, 'bad'],
+  ])('realistic view %i° → %s', (deg, cls) => {
     expect(classifyAngle(deg, 'view')).toBe(cls);
   });
-  // touch: 55 / 85 / 105
   it.each([
-    [55, 'ideal'],
-    [56, 'ok'],
-    [85, 'ok'],
-    [86, 'caution'],
-    [105, 'caution'],
-    [106, 'bad'],
-  ])('touch %i° → %s', (deg, cls) => {
+    [70, 'ideal'], [71, 'ok'], [100, 'ok'], [101, 'caution'], [120, 'caution'], [121, 'bad'],
+  ])('realistic touch %i° → %s', (deg, cls) => {
     expect(classifyAngle(deg, 'touch')).toBe(cls);
   });
-  it('a 72° screen is BAD for viewing but FINE for touch (the core fix)', () => {
-    expect(classifyAngle(72, 'view')).toBe('bad');
-    expect(classifyAngle(72, 'touch')).toBe('ok');
+  it('a 55" touch screen at arm’s length (~88°) is FINE realistically, caution strictly', () => {
+    expect(classifyAngle(88, 'touch', 'realistic')).toBe('ok');
+    expect(classifyAngle(88, 'touch', 'strict')).toBe('caution');
   });
 });
 
@@ -193,11 +193,19 @@ describe('verdict — touch sizing matrix (adult, recommended mount)', () => {
   const at = (diag: number) =>
     verdict(cfg({ diag, mode: 'touch', mountBottom: recommendMountBottom(w169(diag).height, 'touch') }));
   it('42" touch → not bad', () => expect(at(42).level).not.toBe('bad'));
-  it('55" touch → caution (getting large)', () => expect(at(55).level).toBe('caution'));
-  it('86" touch → bad (too big to touch)', () => {
-    const v = at(86);
-    expect(v.level).toBe('bad');
-    expect(v.horizontalAngle).toBeGreaterThan(105);
+  it('55" touch (kiosk standard) → not bad realistically', () => {
+    expect(at(55).level).not.toBe('bad');
+  });
+  it('55" touch is harsher under strict mode', () => {
+    const strict = verdict(
+      cfg({ diag: 55, mode: 'touch', strictness: 'strict', mountBottom: recommendMountBottom(w169(55).height, 'touch') }),
+    );
+    expect(['caution', 'bad']).toContain(strict.level);
+  });
+  it('86" touch → caution realistically, bad strictly (~113°)', () => {
+    expect(at(86).horizontalAngle).toBeGreaterThan(105);
+    expect(at(86).level).toBe('caution');
+    expect(verdict(cfg({ diag: 86, mode: 'touch', strictness: 'strict' })).level).toBe('bad');
   });
   it('12 ft LED wall as a touchscreen → bad with multiple reasons', () => {
     const v = verdict(cfg({ diag: 165, mode: 'touch', mountBottom: 0, pitchMm: 3.9 }));

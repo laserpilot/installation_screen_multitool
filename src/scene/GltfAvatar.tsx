@@ -16,6 +16,9 @@ type ModelCfg = {
   rot: [number, number, number];
   /** World-Y turn applied after uprighting, to FACE THE WALL (−Z). */
   faceYaw: number;
+  /** Inches to nudge the figure toward the wall so the posed hand meets the
+   *  glass (per-model, since arm poses differ). Cosmetic only. */
+  handGap: number;
 };
 
 // Each export comes out of Blender in its own orientation, so orientation is
@@ -25,10 +28,10 @@ type ModelCfg = {
 // subpath (/<repo>/) — runtime string URLs aren't rewritten by the bundler.
 const BASE = import.meta.env.BASE_URL;
 const MODELS: Partial<Record<PersonaId, ModelCfg>> = {
-  adult: { url: `${BASE}adult.glb`, rot: [0, 0, 0], faceYaw: Math.PI },
-  child: { url: `${BASE}child.glb`, rot: [Math.PI, 0, 0], faceYaw: Math.PI },
+  adult: { url: `${BASE}adult.glb`, rot: [0, 0, 0], faceYaw: Math.PI, handGap: 5 },
+  child: { url: `${BASE}child.glb`, rot: [Math.PI, 0, 0], faceYaw: Math.PI, handGap: 5 },
   // seated model includes its own seat (Cube); native upright like the adult.
-  wheelchair: { url: `${BASE}seated_adult.glb`, rot: [0, 0, 0], faceYaw: Math.PI },
+  wheelchair: { url: `${BASE}seated_adult.glb`, rot: [0, 0, 0], faceYaw: Math.PI, handGap: 1 },
 };
 
 // Off-white matte "marble / Corian" look, overriding whatever the export shipped.
@@ -38,10 +41,6 @@ const MARBLE = new THREE.MeshStandardMaterial({
   metalness: 0.0,
 });
 
-// The posed hand sits a little short of the glass (arm not fully extended in the
-// pose). Nudge the whole figure toward the wall so it reads as touching. Purely
-// cosmetic — the reach math + dimensions still use the true standing distance.
-const HAND_GAP_IN = 5;
 
 function GltfAvatar({ cfg, persona }: { cfg: ModelCfg; persona: Persona }) {
   const { scene } = useGLTF(cfg.url);
@@ -75,7 +74,7 @@ function GltfAvatar({ cfg, persona }: { cfg: ModelCfg; persona: Persona }) {
   const L = avatarLayout(persona, distance, mountBottom, mountBottom + screen.height);
 
   const scale = f(persona.statureHeight) / prep.height;
-  const bodyZ = L.z - f(HAND_GAP_IN);
+  const bodyZ = L.z - f(cfg.handGap);
 
   return (
     <group>

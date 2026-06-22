@@ -44,14 +44,16 @@ export function SideElevation() {
   const touches = reachLen <= armLen;
   const v = s.getVerdict();
 
-  // viewBox layout (inches)
+  // viewBox layout (inches). PANEL is a dedicated right-hand column for the spec
+  // block so it never overlaps the drawing.
   const mL = 30;
-  const mR = 16;
+  const mR = 12;
   const mT = 14;
   const mB = 30;
+  const PANEL = 86;
   const Hc = Math.max(screenTop, eyeH + 6, persona.statureHeight, 84) + 4;
   const Dc = distance + 30;
-  const VBW = mL + Dc + mR;
+  const VBW = mL + Dc + PANEL + mR;
   const VBH = mT + Hc + mB;
   const wallX = mL;
   const groundY = mT + Hc;
@@ -207,11 +209,11 @@ export function SideElevation() {
           y1={Y(shoulderH)}
           x2={X(handDepth)}
           y2={Y(handHeight)}
-          stroke={SKIN}
-          strokeWidth={2.2}
+          stroke={BODY}
+          strokeWidth={5}
           strokeLinecap="round"
         />
-        <circle cx={X(handDepth)} cy={Y(handHeight)} r={2.4} fill={touches ? GREEN : '#e06c6c'} />
+        <circle cx={X(handDepth)} cy={Y(handHeight)} r={3} fill={touches ? GREEN : '#e06c6c'} />
 
         {/* dimensions */}
         <VDim x={wallX - 9} y0={groundY} y1={Y(mountBottom)} label={fmtLen(mountBottom, units)} fs={FS} />
@@ -225,7 +227,7 @@ export function SideElevation() {
         />
 
         <SpecBlock
-          x={VBW - mR - 78}
+          x={mL + Dc + 4}
           y={mT}
           rows={[
             ['Screen', `${Math.round(s.diagonal)}"  ${s.aspectW}:${s.aspectH}`],
@@ -296,6 +298,11 @@ function SpecBlock({
   );
 }
 
+/**
+ * Profile mannequin built from filled capsules (round-capped strokes in one
+ * body colour) so it reads as a solid figure rather than a ball-and-stick.
+ * Limbs overlap at the joints to look continuous.
+ */
 function Person({
   px,
   Y,
@@ -311,26 +318,30 @@ function Person({
   shoulderH: number;
   hipH: number;
 }) {
+  const Cap = (x1: number, h1: number, x2: number, h2: number, w: number) => (
+    <line x1={x1} y1={Y(h1)} x2={x2} y2={Y(h2)} stroke={BODY} strokeWidth={w} strokeLinecap="round" />
+  );
   return (
-    <g stroke={BODY} strokeLinecap="round" fill="none">
-      {/* head */}
-      <circle cx={px} cy={Y(eyeH + 3)} r={4} fill={SKIN} stroke="none" />
-      {/* neck */}
-      <line x1={px} y1={Y(shoulderH)} x2={px} y2={Y(eyeH - 1)} strokeWidth={2.4} />
+    <g>
+      {/* back arm (resting), drawn first so the body overlaps the shoulder */}
+      {!seated && Cap(px, shoulderH, px + 2, hipH + 4, 5)}
       {/* torso */}
-      <line x1={px} y1={Y(hipH)} x2={px} y2={Y(shoulderH)} strokeWidth={9} />
+      {Cap(px, hipH, px, shoulderH + 1, 12)}
+      {/* neck */}
+      {Cap(px, shoulderH, px, eyeH - 1, 5)}
+      {/* head (slightly oval profile) */}
+      <ellipse cx={px} cy={Y(eyeH + 3)} rx={5} ry={6} fill={SKIN} />
       {seated ? (
         <>
-          {/* thigh forward (toward wall), shin down */}
-          <line x1={px} y1={Y(hipH)} x2={px - 15} y2={Y(hipH)} strokeWidth={7} />
-          <line x1={px - 15} y1={Y(hipH)} x2={px - 15} y2={Y(2)} strokeWidth={6} />
-          {/* wheelchair */}
-          <circle cx={px} cy={Y(11)} r={11} strokeWidth={1.4} stroke="#1a2026" />
-          <line x1={px - 16} y1={Y(hipH - 2)} x2={px + 6} y2={Y(hipH - 2)} strokeWidth={2} stroke="#2b3440" />
-          <line x1={px + 7} y1={Y(hipH - 2)} x2={px + 7} y2={Y(hipH + 18)} strokeWidth={2} stroke="#2b3440" />
+          {Cap(px, hipH, px - 16, hipH, 9)} {/* thigh toward wall */}
+          {Cap(px - 16, hipH, px - 16, 2, 7)} {/* shin */}
+          {/* simple chair */}
+          <circle cx={px} cy={Y(11)} r={11} fill="none" stroke="#1a2026" strokeWidth={1.6} />
+          <line x1={px - 16} y1={Y(hipH - 3)} x2={px + 7} y2={Y(hipH - 3)} stroke="#2b3440" strokeWidth={2.4} />
+          <line x1={px + 7} y1={Y(hipH - 3)} x2={px + 7} y2={Y(hipH + 18)} stroke="#2b3440" strokeWidth={2.4} />
         </>
       ) : (
-        <line x1={px} y1={Y(hipH)} x2={px} y2={Y(0)} strokeWidth={7} />
+        Cap(px, hipH + 2, px, 0, 9) /* leg */
       )}
     </g>
   );

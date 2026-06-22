@@ -21,6 +21,8 @@ export function VerdictPanel() {
   const resMode = useConfigStore((s) => s.resMode);
   const horizontalPixels = useConfigStore((s) => s.horizontalPixels);
   const pitchMm = useConfigStore((s) => s.pitchMm);
+  const strictness = useConfigStore((s) => s.strictness);
+  const set = useConfigStore((s) => s.set);
   const getVerdict = useConfigStore((s) => s.getVerdict);
 
   const v = useMemo(
@@ -28,7 +30,7 @@ export function VerdictPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       diagonal, aspectW, aspectH, mountBottom, mode, viewingDistance,
-      personaId, resMode, horizontalPixels, pitchMm, getVerdict,
+      personaId, resMode, horizontalPixels, pitchMm, strictness, getVerdict,
     ],
   );
 
@@ -36,9 +38,25 @@ export function VerdictPanel() {
 
   return (
     <div className="panel verdict">
-      <div className={`verdict-badge ${v.level}`}>
-        <span className="verdict-dot" />
-        {LEVEL_LABEL[v.level]}
+      <div className="verdict-head">
+        <div className={`verdict-badge ${v.level}`}>
+          <span className="verdict-dot" />
+          {LEVEL_LABEL[v.level]}
+        </div>
+        <span className="seg sm" title="How forgiving the judgments are">
+          <button
+            className={strictness === 'realistic' ? 'on' : ''}
+            onClick={() => set('strictness', 'realistic')}
+          >
+            Realistic
+          </button>
+          <button
+            className={strictness === 'strict' ? 'on' : ''}
+            onClick={() => set('strictness', 'strict')}
+          >
+            Strict
+          </button>
+        </span>
       </div>
 
       <ul className="reasons">
@@ -56,7 +74,7 @@ export function VerdictPanel() {
           value={`${fmtLen(screen.width, units)} × ${fmtLen(screen.height, units)}`}
         />
         <Metric
-          label="Horizontal field of view"
+          label="Screen fills (of your view)"
           value={`${v.horizontalAngle.toFixed(0)}°`}
         />
         <Metric label="Viewing distance" value={fmtDist(v.effectiveDistance, units)} />
