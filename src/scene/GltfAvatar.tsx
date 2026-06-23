@@ -10,7 +10,7 @@ import { avatarLayout } from './avatarLayout';
 import { ReachEnvelope } from './ReachEnvelope';
 import { f } from './scale';
 
-type ModelCfg = {
+export type ModelCfg = {
   url: string;
   /** Euler radians applied to the model to STAND IT UPRIGHT. */
   rot: [number, number, number];
@@ -27,7 +27,7 @@ type ModelCfg = {
 // Prefix with Vite's base URL so model paths resolve under the GitHub Pages
 // subpath (/<repo>/) — runtime string URLs aren't rewritten by the bundler.
 const BASE = import.meta.env.BASE_URL;
-const MODELS: Partial<Record<PersonaId, ModelCfg>> = {
+export const MODELS: Partial<Record<PersonaId, ModelCfg>> = {
   adult: { url: `${BASE}adult.glb`, rot: [0, 0, 0], faceYaw: Math.PI, handGap: 5 },
   child: { url: `${BASE}child.glb`, rot: [Math.PI, 0, 0], faceYaw: Math.PI, handGap: 5 },
   // seated model includes its own seat (Cube); native upright like the adult.
@@ -35,7 +35,7 @@ const MODELS: Partial<Record<PersonaId, ModelCfg>> = {
 };
 
 // Off-white matte "marble / Corian" look, overriding whatever the export shipped.
-const MARBLE = new THREE.MeshStandardMaterial({
+export const MARBLE = new THREE.MeshStandardMaterial({
   color: '#e9e6e0',
   roughness: 0.72,
   metalness: 0.0,

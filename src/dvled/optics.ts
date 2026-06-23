@@ -98,7 +98,12 @@ export function dvledMetrics(
   };
 }
 
-/** Distance (in) in metres, for readouts. */
+/** Inches → metres, for readouts. */
 export function inToM(inches: number): number {
   return inches / IN_PER_M;
+}
+
+/** Metres → inches, to feed the unit-aware distance formatter. */
+export function mToIn(metres: number): number {
+  return metres * IN_PER_M;
 }

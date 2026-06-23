@@ -11,6 +11,36 @@ export const MM_PER_IN = 25.4;
 export const ADA_REACH_LOW = 15; // in
 export const ADA_REACH_HIGH = 48; // in
 
+// Arm length as a fraction of overall stature (~42%). The reach radius from the
+// shoulder pivot in both the vertical avatar and the horizontal table model.
+export const REACH_ARM_FRACTION = 0.42;
+
+// --- Horizontal table touchscreen ------------------------------------------
+// A table flips reach from a HEIGHT problem to a DEPTH problem: you reach across
+// the surface, not up a wall. These constants drive the table tab's own model.
+//
+// Extra horizontal reach from leaning the torso over the table edge, on top of
+// arm length. Standing bodies can hinge further at the hip than a seated user.
+export const STANDING_LEAN_ALLOWANCE = 8; // in
+export const SEATED_LEAN_ALLOWANCE = 6; // in
+
+// ADA 308.3.2 forward reach OVER an obstruction (the table edge). The deeper the
+// reach, the lower the allowable high reach; past 25" it isn't permitted at all.
+export const ADA_OBSTRUCTED_SHALLOW_DEPTH = 20; // in → high reach stays 48"
+export const ADA_OBSTRUCTED_DEEP_DEPTH = 25; // in → high reach drops to 44"; hard max
+
+// ADA 902.3 work-surface height + 306 knee/toe clearance, so a wheelchair can
+// pull up under the table. Outside 28–34" a seated user can't use it as intended.
+export const TABLE_SURFACE_MIN = 28; // in AFF
+export const TABLE_SURFACE_MAX = 34; // in AFF
+export const KNEE_CLEARANCE_HEIGHT = 27; // in (clear height under the front edge)
+export const TOE_CLEARANCE_HEIGHT = 9; // in
+export const KNEE_CLEARANCE_DEPTH_MIN = 11; // in
+export const KNEE_CLEARANCE_DEPTH_MAX = 25; // in
+
+// Default interactive-table surface height (kiosk/exhibit table, ADA-friendly).
+export const DEFAULT_TABLE_HEIGHT = 34; // in AFF
+
 // Judgment strictness. 'realistic' (default) matches what works in real
 // installs; 'strict' holds to spec-ideal comfort. The user toggles this.
 export type Strictness = 'realistic' | 'strict';

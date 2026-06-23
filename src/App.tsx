@@ -8,6 +8,11 @@ import { Scene } from './scene/Scene';
 import { SideElevation } from './twod/SideElevation';
 import { DvLedControls } from './dvled/DvLedControls';
 import { DvLedPreview } from './dvled/DvLedPreview';
+import { ProjectionControls } from './projection/ProjectionControls';
+import { ProjectionScene } from './projection/ProjectionScene';
+import { TableControls } from './table/TableControls';
+import { TableElevation } from './table/TableElevation';
+import { TableScene } from './table/TableScene';
 import './App.css';
 
 export default function App() {
@@ -19,22 +24,29 @@ export default function App() {
   const fp = cameraView === 'first-person';
   const is2d = stageView === '2d';
   const isDvled = appTab === 'dvled';
+  const isProjection = appTab === 'projection';
+  const isTable = appTab === 'table';
+  const isPlacement = appTab === 'placement';
+
+  const tag = isDvled
+    ? 'dvLED viewing-distance preview'
+    : isProjection
+      ? 'single-projector throw & photometric simulator'
+      : isTable
+        ? 'horizontal table — reach depth · ADA · seated access'
+        : 'touch reach · viewing distance · pixel pitch';
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">
           <strong>Screen Placement Simulator</strong>
-          <span className="tag">
-            {isDvled
-              ? 'dvLED viewing-distance preview'
-              : 'touch reach · viewing distance · pixel pitch'}
-          </span>
+          <span className="tag">{tag}</span>
         </div>
         <div className="topbar-controls">
           <span className="seg tabs">
             <button
-              className={!isDvled ? 'on' : ''}
+              className={isPlacement ? 'on' : ''}
               onClick={() => set('appTab', 'placement')}
             >
               Placement
@@ -45,8 +57,20 @@ export default function App() {
             >
               dvLED preview
             </button>
+            <button
+              className={isProjection ? 'on' : ''}
+              onClick={() => set('appTab', 'projection')}
+            >
+              Projection
+            </button>
+            <button
+              className={isTable ? 'on' : ''}
+              onClick={() => set('appTab', 'table')}
+            >
+              Table
+            </button>
           </span>
-          {!isDvled && (
+          {(isPlacement || isTable) && (
             <span className="seg">
               <button className={!is2d ? 'on' : ''} onClick={() => set('stageView', '3d')}>
                 3D
@@ -56,7 +80,7 @@ export default function App() {
               </button>
             </span>
           )}
-          {!isDvled && !is2d && (
+          {isPlacement && !is2d && (
             <button
               className={`view-toggle ${fp ? 'on' : ''}`}
               onClick={() => set('cameraView', fp ? 'orbit' : 'first-person')}
@@ -74,6 +98,10 @@ export default function App() {
         <aside className="sidebar">
           {isDvled ? (
             <DvLedControls />
+          ) : isProjection ? (
+            <ProjectionControls />
+          ) : isTable ? (
+            <TableControls />
           ) : (
             <>
               <HelpPanel />
@@ -85,6 +113,10 @@ export default function App() {
         <section className="stage">
           {isDvled ? (
             <DvLedPreview />
+          ) : isProjection ? (
+            <ProjectionScene />
+          ) : isTable ? (
+            is2d ? <TableElevation /> : <TableScene />
           ) : is2d ? (
             <SideElevation />
           ) : (

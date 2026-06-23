@@ -1,10 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PERSONAS } from '../ergonomics/constants';
 import { sizeFromDiagonal } from '../ergonomics/engine';
 import { makeTestPatternCanvas } from '../scene/testPattern';
 import { useConfigStore } from '../store/useConfigStore';
 import { fmtDist } from '../ui/units';
 import { DvLedCanvas } from './DvLedCanvas';
-import { dvledMetrics, inToM, type Perceived } from './optics';
+import { ScaleOverlay } from './ScaleOverlay';
+import { dvledMetrics, mToIn, type Perceived } from './optics';
+
+/** Human-friendly height label, e.g. 5'9" or 175 cm. */
+function fmtHeight(inches: number, metric: boolean): string {
+  if (metric) return `${Math.round(inches * 2.54)} cm`;
+  const ft = Math.floor(inches / 12);
+  const inch = Math.round(inches - ft * 12);
+  return `${ft}'${inch}"`;
+}
 
 const PERCEIVED_LABEL: Record<Perceived, { text: string; tone: string }> = {
   pixelated: { text: 'Pixels clearly visible', tone: 'bad' },
@@ -39,7 +49,13 @@ export function DvLedPreview() {
   }, [s.contentUrl, s.aspectW, s.aspectH, s.diagonal]);
 
   const tone = PERCEIVED_LABEL[m.perceived];
-  const distM = inToM(s.dvledDistance);
+
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+  const onCanvasResize = useCallback((w: number, h: number) => {
+    setCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+  }, []);
+
+  const persona = PERSONAS[s.dvledScalePersona];
 
   return (
     <div className="dvled-stage">
@@ -52,7 +68,26 @@ export function DvLedPreview() {
           fillFactor={s.fillFactor}
           shape={s.ledShape}
           aspect={size.width / size.height}
+          onResize={onCanvasResize}
         />
+        {s.dvledShowScale && canvasSize.w > 0 && (
+          <div
+            className="dvled-overlay"
+            style={{ width: canvasSize.w, height: canvasSize.h }}
+          >
+            <ScaleOverlay
+              cssW={canvasSize.w}
+              cssH={canvasSize.h}
+              viewSpanWidthIn={m.viewSpanWidthIn}
+              wallFillFraction={m.wallFillFraction}
+              statureIn={persona.statureHeight}
+              eyeHeightIn={persona.eyeHeight}
+              figureLabel={fmtHeight(persona.statureHeight, units === 'metric')}
+              seated={persona.seated}
+              metric={units === 'metric'}
+            />
+          </div>
+        )}
       </div>
 
       <div className="dvled-readout">
@@ -75,11 +110,11 @@ export function DvLedPreview() {
           </div>
           <div>
             <dt>Clean from</dt>
-            <dd>{m.minCleanDistanceM.toFixed(1)} m</dd>
+            <dd>{fmtDist(mToIn(m.minCleanDistanceM), units)}</dd>
           </div>
           <div>
             <dt>Pixel-free from</dt>
-            <dd>{m.retinaDistanceM.toFixed(1)} m</dd>
+            <dd>{fmtDist(mToIn(m.retinaDistanceM), units)}</dd>
           </div>
         </dl>
         <p className="dvled-note">
@@ -90,8 +125,8 @@ export function DvLedPreview() {
                 m.nativeCols,
               ).toLocaleString()} columns across a ${s.dvledFov}° gaze.`
             : `The whole wall now sits inside your ${s.dvledFov}° field of view.`}{' '}
-          You're at {distM.toFixed(1)} m; it reads clean from{' '}
-          {m.minCleanDistanceM.toFixed(1)} m back.
+          You're at {fmtDist(s.dvledDistance, units)}; it reads clean from{' '}
+          {fmtDist(mToIn(m.minCleanDistanceM), units)} back.
         </p>
       </div>
     </div>

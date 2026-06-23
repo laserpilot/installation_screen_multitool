@@ -16,6 +16,8 @@ export interface DvLedCanvasProps {
   shape: LedShape;
   /** Wall aspect (w/h) — the canvas is letterboxed to this. */
   aspect: number;
+  /** Reports the rendered canvas CSS size, so overlays can align to it. */
+  onResize?: (cssW: number, cssH: number) => void;
 }
 
 const VERT = `#version 300 es
@@ -26,18 +28,22 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
-// One pass. We map each fragment to a point on the wall, quantise it to an LED
-// cell, light that cell with the content colour, and carve the inter-LED gap
-// with an emitter mask.
+// One pass, resolution-aware. We map each fragment to a point on the wall and
+// decide how much of the LED *structure* (the emitter dots + black gaps) the
+// display — standing in for the eye — can actually resolve here:
 //
-// The LED grid is a high-frequency periodic pattern. Drawn with one sample per
-// display pixel it beats against the canvas pixel grid and throws off moiré /
-// phantom squares — a *rendering* artifact, not something the eye sees. So we
-// supersample the pattern across each pixel's footprint (estimated from the
-// screen-space derivative of the cell coordinate) and average. This area-filters
-// the emitter mask, which also makes distance drive sharpness correctly: when a
-// cell is much larger than a pixel the dots stay crisp; when many cells fall
-// inside one pixel (far away) the mask and gaps average into a smooth image.
+//  • Cells comfortably larger than a display pixel  ⇒ draw the screen-door,
+//    supersampled across the pixel footprint so the grid doesn't beat against
+//    the canvas pixel grid (the moiré / phantom-square artifact).
+//  • Cells at or below one pixel (far away, or a fine pitch)  ⇒ the gap is
+//    below the resolution limit; a real viewer sees no grid at all, so we drop
+//    the screen-door and show mip-filtered content. Drawing the sub-pixel grid
+//    there is what made the wall look falsely low-res.
+//
+// We crossfade between the two by px-per-cell, so there's no hard switch.
+// Emitter brightness is divided by the fill factor so the dots-on-black average
+// back to the content luminance — the wall doesn't change brightness as the
+// grid dissolves.
 const FRAG = `#version 300 es
 precision highp float;
 in vec2 v_uv;
@@ -72,21 +78,34 @@ void main() {
     return;
   }
 
+  // Mip-filtered content — what the wall looks like once the grid is gone.
+  vec3 smoothCol = texture(u_content, wallUv).rgb;
+
   vec2 cell = wallUv * u_cells;     // continuous cell coordinate
   vec2 dCx = dFdx(cell);            // pixel footprint in cell space
   vec2 dCy = dFdy(cell);
+  // Cells spanned per display pixel (dominant axis), and its reciprocal.
+  float cpp = max(max(abs(dCx.x), abs(dCx.y)), max(abs(dCy.x), abs(dCy.y)));
+  float pxPerCell = cpp > 1e-6 ? 1.0 / cpp : 1e6;
+  // 0 when a cell is sub-pixel (no resolvable grid) → 1 when ≥ ~2.5 px/cell.
+  float structure = smoothstep(1.0, 2.5, pxPerCell);
 
-  vec3 acc = vec3(0.0);
-  for (int i = 0; i < N; i++) {
-    for (int j = 0; j < N; j++) {
-      vec2 o = (vec2(float(i), float(j)) + 0.5) / float(N) - 0.5;
-      vec2 c = cell + o.x * dCx + o.y * dCy;
-      vec3 led = textureLod(u_content, (floor(c) + 0.5) / u_cells, 0.0).rgb;
-      acc += mix(GAP, led, mask(fract(c) - 0.5));
+  vec3 col = smoothCol;
+  if (structure > 0.002) {
+    float emit = 1.0 / max(u_fill, 0.05);
+    vec3 acc = vec3(0.0);
+    for (int i = 0; i < N; i++) {
+      for (int j = 0; j < N; j++) {
+        vec2 o = (vec2(float(i), float(j)) + 0.5) / float(N) - 0.5;
+        vec2 c = cell + o.x * dCx + o.y * dCy;
+        vec3 led = textureLod(u_content, (floor(c) + 0.5) / u_cells, 0.0).rgb;
+        acc += mix(GAP, min(led * emit, vec3(1.0)), mask(fract(c) - 0.5));
+      }
     }
+    col = mix(smoothCol, acc / float(N * N), structure);
   }
 
-  outColor = vec4(acc / float(N * N), 1.0);
+  outColor = vec4(col, 1.0);
 }`;
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string) {
@@ -200,6 +219,7 @@ export function DvLedCanvas(props: DvLedCanvasProps) {
       }
       canvas.style.width = `${cssW}px`;
       canvas.style.height = `${cssH}px`;
+      props.onResize?.(cssW, cssH);
       const pxW = Math.max(1, Math.round(cssW * dpr));
       const pxH = Math.max(1, Math.round(cssH * dpr));
       if (canvas.width !== pxW || canvas.height !== pxH) {
@@ -231,6 +251,7 @@ export function DvLedCanvas(props: DvLedCanvasProps) {
     props.shape,
     props.aspect,
     props.source,
+    props.onResize,
   ]);
 
   return <canvas ref={canvasRef} className="dvled-canvas" />;

@@ -1,4 +1,4 @@
-import type { Persona } from '../ergonomics/constants';
+import { REACH_ARM_FRACTION, type Persona } from '../ergonomics/constants';
 import { screenGeometry } from '../ergonomics/screenGeometry';
 import { f } from './scale';
 
@@ -48,7 +48,7 @@ export function avatarLayout(
   const target: [number, number, number] = [f(tp[0]), f(tp[1]), f(tp[2])];
 
   // Arm reaches toward the target, capped at arm length.
-  const armLen = f(0.42 * persona.statureHeight);
+  const armLen = f(REACH_ARM_FRACTION * persona.statureHeight);
   const dx = target[0] - shoulder[0];
   const dy = target[1] - shoulder[1];
   const dz = target[2] - shoulder[2];

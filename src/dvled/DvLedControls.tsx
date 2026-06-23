@@ -171,6 +171,40 @@ export function DvLedControls() {
         </span>
       </Row>
 
+      <h2>Scale reference</h2>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={s.dvledShowScale}
+          onChange={(e) => s.set('dvledShowScale', e.target.checked)}
+        />
+        Show person + scale bar
+      </label>
+      {s.dvledShowScale && (
+        <Row label="Figure">
+          <span className="seg sm">
+            <button
+              className={s.dvledScalePersona === 'adult' ? 'on' : ''}
+              onClick={() => s.set('dvledScalePersona', 'adult')}
+            >
+              Adult
+            </button>
+            <button
+              className={s.dvledScalePersona === 'child' ? 'on' : ''}
+              onClick={() => s.set('dvledScalePersona', 'child')}
+            >
+              Child
+            </button>
+            <button
+              className={s.dvledScalePersona === 'wheelchair' ? 'on' : ''}
+              onClick={() => s.set('dvledScalePersona', 'wheelchair')}
+            >
+              Seated
+            </button>
+          </span>
+        </Row>
+      )}
+
       <h2>Content</h2>
       <ContentUpload />
     </div>
