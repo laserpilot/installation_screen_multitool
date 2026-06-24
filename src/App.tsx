@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { PERSONAS } from './ergonomics/constants';
 import { useConfigStore } from './store/useConfigStore';
+import { AboutModal } from './ui/AboutModal';
 import { ControlPanel } from './ui/ControlPanel';
 import { HelpPanel } from './ui/HelpPanel';
 import { UnitToggle } from './ui/UnitToggle';
@@ -15,6 +17,8 @@ import { TableElevation } from './table/TableElevation';
 import { TableScene } from './table/TableScene';
 import { SensorControls } from './sensor/SensorControls';
 import { SensorScene } from './sensor/SensorScene';
+import { SpeakerControls } from './speaker/SpeakerControls';
+import { SpeakerScene } from './speaker/SpeakerScene';
 import './App.css';
 
 export default function App() {
@@ -23,29 +27,33 @@ export default function App() {
   const appTab = useConfigStore((s) => s.appTab);
   const personaId = useConfigStore((s) => s.personaId);
   const set = useConfigStore((s) => s.set);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const fp = cameraView === 'first-person';
   const is2d = stageView === '2d';
   const isDvled = appTab === 'dvled';
   const isProjection = appTab === 'projection';
   const isTable = appTab === 'table';
   const isSensor = appTab === 'sensor';
+  const isSpeaker = appTab === 'speaker';
   const isPlacement = appTab === 'placement';
 
   const tag = isDvled
-    ? 'dvLED viewing-distance preview'
+    ? 'LED Display viewing-distance preview'
     : isProjection
       ? 'single-projector throw & photometric simulator'
       : isTable
         ? 'horizontal table — reach depth · ADA · seated access'
         : isSensor
           ? 'camera / depth-sensor coverage — FOV · range · blind zones'
-          : 'touch reach · viewing distance · pixel pitch';
+          : isSpeaker
+            ? 'speaker SPL coverage — directivity · dropoff · overlap · dBA verdict'
+            : 'touch reach · viewing distance · pixel pitch';
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <strong>Installation Screen Multitool</strong>
+          <strong>Interactive Installation Multitool</strong>
           <span className="tag">{tag}</span>
         </div>
         <div className="topbar-controls">
@@ -66,7 +74,7 @@ export default function App() {
               className={isDvled ? 'on' : ''}
               onClick={() => set('appTab', 'dvled')}
             >
-              dvLED preview
+              LED Display preview
             </button>
             <button
               className={isProjection ? 'on' : ''}
@@ -79,6 +87,12 @@ export default function App() {
               onClick={() => set('appTab', 'sensor')}
             >
               Sensor Coverage
+            </button>
+            <button
+              className={isSpeaker ? 'on' : ''}
+              onClick={() => set('appTab', 'speaker')}
+            >
+              Speaker SPL
             </button>
           </span>
           {(isPlacement || isTable) && (
@@ -102,8 +116,13 @@ export default function App() {
             </button>
           )}
           <UnitToggle />
+          <button className="about-btn" onClick={() => setAboutOpen(true)}>
+            About
+          </button>
         </div>
       </header>
+
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 
       <main className="layout">
         <aside className="sidebar">
@@ -115,6 +134,8 @@ export default function App() {
             <TableControls />
           ) : isSensor ? (
             <SensorControls />
+          ) : isSpeaker ? (
+            <SpeakerControls />
           ) : (
             <>
               <HelpPanel />
@@ -130,6 +151,8 @@ export default function App() {
             <ProjectionScene />
           ) : isSensor ? (
             <SensorScene />
+          ) : isSpeaker ? (
+            <SpeakerScene />
           ) : isTable ? (
             is2d ? <TableElevation /> : <TableScene />
           ) : is2d ? (
