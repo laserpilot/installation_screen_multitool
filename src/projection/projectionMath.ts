@@ -12,6 +12,7 @@
 
 export const IN_PER_FT = 12;
 export const LUX_PER_FC = 10.7639;
+export const NITS_PER_FL = 3.426; // 1 foot-Lambert = 3.426 cd/m²
 
 /** Foot-candle thresholds (from the user's spreadsheet). */
 export const FC_MIN_ACCEPTABLE = 20; // below this: unusable in any real room
@@ -65,10 +66,15 @@ export interface ProjectionInputs {
   lumens: number;
   /** Stacked projector count — multiplies lumens. */
   projectorCount: number;
+  /** Fraction (0–1) of a single unit's lumens each ADDED stacked unit contributes.
+   *  1 = ideal linear stacking; ~0.9 reflects real alignment/overlap losses. */
+  stackEff: number;
   resW: number;
   resH: number;
   /** Ambient light on the surface, foot-candles. */
   ambientFc: number;
+  /** Screen gain — luminance (fL) = illuminance (fc) × gain. */
+  screenGain: number;
 }
 
 export interface ProjectionMetrics {
@@ -80,6 +86,10 @@ export interface ProjectionMetrics {
   effectiveLumens: number;
   /** Nominal on-axis illuminance = lumens / area (lm/ft² = fc). */
   footCandles: number;
+  /** Surface luminance = fc × screen gain. */
+  footLamberts: number;
+  /** Same luminance in cd/m² (1 fL = 3.426 nits). */
+  nits: number;
   /** How far the image out-shines ambient. <~5 washes out. */
   contrastRatio: number;
   /** Native pixels per linear foot, horizontal / vertical. */
@@ -95,8 +105,13 @@ export function projectionMetrics(i: ProjectionInputs): ProjectionMetrics {
   const widthFt = ftFromIn(widthIn);
   const heightFt = ftFromIn(heightIn);
   const areaSqFt = widthFt * heightFt;
-  const effectiveLumens = i.lumens * Math.max(1, i.projectorCount);
+  // Stacking is sub-linear in reality: the first unit counts fully, each added
+  // unit contributes only `stackEff` of its lumens (alignment/overlap losses).
+  const count = Math.max(1, i.projectorCount);
+  const effectiveLumens = i.lumens * (1 + (count - 1) * i.stackEff);
   const footCandles = areaSqFt > 0 ? effectiveLumens / areaSqFt : 0;
+  const footLamberts = footCandles * i.screenGain;
+  const nits = footLamberts * NITS_PER_FL;
   const contrastRatio = i.ambientFc > 0 ? footCandles / i.ambientFc : Infinity;
 
   return {
@@ -107,6 +122,8 @@ export function projectionMetrics(i: ProjectionInputs): ProjectionMetrics {
     areaSqFt,
     effectiveLumens,
     footCandles,
+    footLamberts,
+    nits,
     contrastRatio,
     hPpf: widthFt > 0 ? i.resW / widthFt : 0,
     vPpf: heightFt > 0 ? i.resH / heightFt : 0,
@@ -126,21 +143,16 @@ export interface FrustumGeometry {
   topRight: Vec3;
   bottomRight: Vec3;
   bottomLeft: Vec3;
+  /** Vertical centre of the landed image, world feet (derived from shift/tilt). */
+  imageCenterFt: number;
 }
+
+export type LensOrigin = 'center' | 'top';
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
-const cross = (a: Vec3, b: Vec3): Vec3 => [
-  a[1] * b[2] - a[2] * b[1],
-  a[2] * b[0] - a[0] * b[2],
-  a[0] * b[1] - a[1] * b[0],
-];
 const len = (a: Vec3): number => Math.hypot(a[0], a[1], a[2]);
-const norm = (a: Vec3): Vec3 => {
-  const l = len(a) || 1;
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
 
 export interface FrustumParams {
   distanceIn: number;
@@ -149,35 +161,53 @@ export interface FrustumParams {
   aspectH: number;
   /** Lens height above the floor, INCHES. */
   lensAffIn: number;
-  /** Vertical centre of the image on the wall, INCHES. */
-  imageCenterAffIn: number;
+  /** Vertical lens shift, % of half the image height. +up / −down. No keystone. */
+  lensShiftPct: number;
+  /** Where 0% shift sits: 'center' (image centred on the lens axis) or 'top'
+   *  (periscope — image hangs fully below the lens at 0%). */
+  lensOrigin: LensOrigin;
+  /** Projector tilt, degrees. 0 = perpendicular (no keystone); +aims up. */
+  tiltDeg: number;
 }
 
 /**
- * The projector sits at (0, lensAff, distance) and is aimed at the image centre
- * on the wall. The frustum half-angles come straight from the throw ratio; the
- * four corner rays, rotated to the aim, intersect the wall (z=0) to give the
- * landed quad — a clean rectangle when lens height == image centre, a vertical
- * keystone otherwise. World units: FEET.
+ * The projector sits at (0, lensAff, distance). Two independent mechanisms place
+ * the image:
+ *   • LENS SHIFT translates the frustum's centre ray up/down with the body still
+ *     square to the wall — the image stays a clean rectangle (NO keystone).
+ *   • TILT rotates the whole body about world-x; off-axis rays then land as a
+ *     vertical keystone.
+ * The four corner rays intersect the wall (z=0) to give the landed quad.
+ * World units: FEET.
  */
 export function frustumGeometry(p: FrustumParams): FrustumGeometry {
   const d = ftFromIn(p.distanceIn);
-  const lens: Vec3 = [0, ftFromIn(p.lensAffIn), d];
-  const center: Vec3 = [0, ftFromIn(p.imageCenterAffIn), 0];
+  const lensY = ftFromIn(p.lensAffIn);
+  const lens: Vec3 = [0, lensY, d];
 
   // Half-angles from the throw ratio (on-axis image of width d/throwRatio at d).
   const tanX = p.throwRatio > 0 ? 1 / (2 * p.throwRatio) : 0;
   const aspect = p.aspectW > 0 ? p.aspectH / p.aspectW : 0;
   const tanY = tanX * aspect;
 
-  // Aim frame: forward toward the image centre; horizontal stays world-x.
-  const forward = norm(sub(center, lens));
+  // Vertical shift in tan-units: ±100% moves the image centre by a full half-
+  // height (tanY). 'top' origin drops the baseline so the image starts below
+  // the lens (image top edge at the lens axis when shift = 0).
+  const baseline = p.lensOrigin === 'top' ? -tanY : 0;
+  const shiftY = (p.lensShiftPct / 100) * tanY + baseline;
+
+  // Body frame: forward toward the wall (−z), rotated about world-x by the tilt.
+  const tilt = (p.tiltDeg * Math.PI) / 180;
+  const cos = Math.cos(tilt);
+  const sin = Math.sin(tilt);
+  const forward: Vec3 = [0, sin, -cos]; // +tilt aims up
+  const up: Vec3 = [0, cos, sin];
   const right: Vec3 = [1, 0, 0];
-  const up = norm(cross(right, forward));
 
   const corner = (sx: number, sy: number): Vec3 => {
-    const dir = norm(
-      add(forward, add(scale(right, sx * tanX), scale(up, sy * tanY))),
+    const dir = add(
+      forward,
+      add(scale(right, sx * tanX), scale(up, sy * tanY + shiftY)),
     );
     // Travel from the lens until the ray reaches the wall plane z=0.
     const t = dir[2] !== 0 ? -lens[2] / dir[2] : 0;
@@ -194,6 +224,8 @@ export function frustumGeometry(p: FrustumParams): FrustumGeometry {
   };
   const upper = raw.a[1] >= raw.d[1] ? [raw.a, raw.b] : [raw.d, raw.c];
   const lower = raw.a[1] >= raw.d[1] ? [raw.d, raw.c] : [raw.a, raw.b];
+  const imageCenterFt =
+    (upper[0][1] + upper[1][1] + lower[0][1] + lower[1][1]) / 4;
 
   return {
     lens,
@@ -201,6 +233,7 @@ export function frustumGeometry(p: FrustumParams): FrustumGeometry {
     topRight: upper[1],
     bottomRight: lower[1],
     bottomLeft: lower[0],
+    imageCenterFt,
   };
 }
 

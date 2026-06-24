@@ -1,17 +1,19 @@
 import { create } from 'zustand';
 import { DEFAULT_TABLE_HEIGHT, type PersonaId, type Strictness } from '../ergonomics/constants';
 import { sizeFromDiagonal, verdict, type Verdict } from '../ergonomics/engine';
+import { mToIn, type SensorMount, type SensorTarget } from '../sensor/sensorMath';
 
 export type Units = 'us' | 'metric';
 export type Mode = 'touch' | 'view';
 export type ResMode = 'pixels' | 'pitch';
 export type CameraView = 'orbit' | 'first-person';
 export type StageView = '3d' | '2d';
-export type AppTab = 'placement' | 'dvled' | 'projection' | 'table';
+export type AppTab = 'placement' | 'dvled' | 'projection' | 'table' | 'sensor';
 export type LedShape = 'square' | 'circle';
 export type MountType = 'wall' | 'stand';
 export type PinMode = 'distance' | 'width';
 export type SurfaceView = 'heatmap' | 'content';
+export type LensOrigin = 'center' | 'top';
 
 export interface ConfigState {
   // --- screen ---
@@ -63,14 +65,33 @@ export interface ConfigState {
   projPin: PinMode; // which of distance/width the user drives
   projLumens: number; // single-projector rated lumens
   projectorCount: number; // stacking multiplier
+  projStackEff: number; // 0–1, brightness kept per added stacked unit
   projAspectW: number;
   projAspectH: number;
   projResW: number; // native projector pixels
   projResH: number;
+  projResLock: boolean; // keep aspect ratio and resolution in sync
   projAmbientFc: number; // ambient light on the surface, foot-candles
+  projScreenGain: number; // screen gain — fL = fc × gain
   projLensAff: number; // in, lens height above floor
-  projImageCenterAff: number; // in, vertical centre of image on the wall
+  projLensShiftPct: number; // vertical lens shift, % of half image height; +up/−down
+  projLensOrigin: LensOrigin; // where 0% shift sits: lens centre, or top-aligned (periscope)
+  projTiltDeg: number; // projector tilt; 0 = perpendicular, nonzero = keystone
+  projShowFigure: boolean; // show a to-scale person for size reference
   projSurfaceView: SurfaceView; // heatmap or projected content
+
+  // --- sensor coverage (camera / depth sensor) ---
+  sensorMount: SensorMount; // ceiling / wall / floor
+  sensorMountAff: number; // in, sensor height above floor (ceiling/wall height)
+  sensorPitchDeg: number; // elevation aim: 0 level, −90 down, +90 up
+  sensorYawDeg: number; // pan aim about vertical
+  sensorHFov: number; // horizontal field of view, deg
+  sensorVFov: number; // vertical field of view, deg
+  sensorMinRange: number; // in, closest usable depth
+  sensorMaxRange: number; // in, farthest usable depth
+  sensorTarget: SensorTarget; // surface coverage lands on: floor or facing wall
+  sensorWallDist: number; // in, distance to the facing wall (target='wall')
+  sensorShowFigure: boolean; // show a to-scale person at the footprint centre
 
   // --- actions ---
   set: <K extends keyof ConfigState>(key: K, value: ConfigState[K]) => void;
@@ -122,14 +143,33 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   projPin: 'distance',
   projLumens: 4000,
   projectorCount: 1,
+  projStackEff: 0.9, // each added stacked unit contributes ~90% of its lumens
   projAspectW: 16,
   projAspectH: 9,
   projResW: 1920,
-  projResH: 1200,
+  projResH: 1080, // 16:9, consistent with the aspect default
+  projResLock: true,
   projAmbientFc: 5,
-  projLensAff: 90, // 7.5 ft, level with the image centre (clean rectangle)
-  projImageCenterAff: 90,
+  projScreenGain: 1.0,
+  projLensAff: 90, // 7.5 ft
+  projLensShiftPct: 0, // image centred on the lens axis
+  projLensOrigin: 'center',
+  projTiltDeg: 0, // perpendicular → no keystone
+  projShowFigure: true,
   projSurfaceView: 'heatmap',
+
+  // Azure Kinect (NFOV) on a 9 ft ceiling aimed straight down at the floor.
+  sensorMount: 'ceiling',
+  sensorMountAff: 108, // 9 ft
+  sensorPitchDeg: -90,
+  sensorYawDeg: 0,
+  sensorHFov: 75,
+  sensorVFov: 65,
+  sensorMinRange: mToIn(0.5), // ~0.5 m
+  sensorMaxRange: mToIn(3.86), // ~3.86 m
+  sensorTarget: 'floor',
+  sensorWallDist: 240, // 20 ft
+  sensorShowFigure: true,
 
   set: (key, value) => set({ [key]: value } as Partial<ConfigState>),
   setContent: (url) => set({ contentUrl: url }),

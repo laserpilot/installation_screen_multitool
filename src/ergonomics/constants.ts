@@ -41,6 +41,16 @@ export const KNEE_CLEARANCE_DEPTH_MAX = 25; // in
 // Default interactive-table surface height (kiosk/exhibit table, ADA-friendly).
 export const DEFAULT_TABLE_HEIGHT = 34; // in AFF
 
+// Common surface heights (in AFF) offered as one-tap presets — a seated/desk
+// height through a stand-up bar.
+export const TABLE_HEIGHT_PRESETS: { label: string; in: number }[] = [
+  { label: 'Sit-down', in: 29 },
+  { label: 'ADA', in: 34 },
+  { label: 'Counter', in: 36 },
+  { label: 'Standing', in: 39 },
+  { label: 'Bar', in: 42 },
+];
+
 // Judgment strictness. 'realistic' (default) matches what works in real
 // installs; 'strict' holds to spec-ideal comfort. The user toggles this.
 export type Strictness = 'realistic' | 'strict';

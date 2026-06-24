@@ -13,6 +13,8 @@ import { ProjectionScene } from './projection/ProjectionScene';
 import { TableControls } from './table/TableControls';
 import { TableElevation } from './table/TableElevation';
 import { TableScene } from './table/TableScene';
+import { SensorControls } from './sensor/SensorControls';
+import { SensorScene } from './sensor/SensorScene';
 import './App.css';
 
 export default function App() {
@@ -26,6 +28,7 @@ export default function App() {
   const isDvled = appTab === 'dvled';
   const isProjection = appTab === 'projection';
   const isTable = appTab === 'table';
+  const isSensor = appTab === 'sensor';
   const isPlacement = appTab === 'placement';
 
   const tag = isDvled
@@ -34,7 +37,9 @@ export default function App() {
       ? 'single-projector throw & photometric simulator'
       : isTable
         ? 'horizontal table — reach depth · ADA · seated access'
-        : 'touch reach · viewing distance · pixel pitch';
+        : isSensor
+          ? 'camera / depth-sensor coverage — FOV · range · blind zones'
+          : 'touch reach · viewing distance · pixel pitch';
 
   return (
     <div className="app">
@@ -69,6 +74,12 @@ export default function App() {
             >
               Projection
             </button>
+            <button
+              className={isSensor ? 'on' : ''}
+              onClick={() => set('appTab', 'sensor')}
+            >
+              Sensor Coverage
+            </button>
           </span>
           {(isPlacement || isTable) && (
             <span className="seg">
@@ -102,6 +113,8 @@ export default function App() {
             <ProjectionControls />
           ) : isTable ? (
             <TableControls />
+          ) : isSensor ? (
+            <SensorControls />
           ) : (
             <>
               <HelpPanel />
@@ -115,6 +128,8 @@ export default function App() {
             <DvLedPreview />
           ) : isProjection ? (
             <ProjectionScene />
+          ) : isSensor ? (
+            <SensorScene />
           ) : isTable ? (
             is2d ? <TableElevation /> : <TableScene />
           ) : is2d ? (

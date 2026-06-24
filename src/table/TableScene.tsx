@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber';
 import { Grid, OrbitControls, PerspectiveCamera, useGLTF } from '@react-three/drei';
-import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react';
+import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PERSONAS, type Persona } from '../ergonomics/constants';
@@ -10,7 +10,7 @@ import { MARBLE, MODELS, type ModelCfg } from '../scene/GltfAvatar';
 import { f } from '../scene/scale';
 import { makeTestPattern } from '../scene/testPattern';
 import { useConfigStore } from '../store/useConfigStore';
-import { makeReachHeatmap } from './reachHeatmap';
+import { makeReachHeatmap, seatReachOrigins } from './reachHeatmap';
 
 // The horizontal table 3D stage. The screen lies FACE-UP on a tabletop at the
 // surface height; a border/bezel frames it; the user(s) stand at the edge(s).
@@ -79,19 +79,47 @@ function Table({
   bezelFt: number;
   topY: number;
 }) {
-  const { diagonal, aspectW, aspectH, tableHeight, tableBezel, personaId, tableShowReach } =
+  const { diagonal, aspectW, aspectH, tableHeight, tableBezel, personaId, tableShowReach, tableSeats, contentUrl } =
     useConfigStore();
+
+  // Procedural test pattern (default), regenerated when the screen changes.
   const pattern = useMemo(
     () => makeTestPattern(aspectW, aspectH, diagonal),
     [aspectW, aspectH, diagonal],
   );
   useEffect(() => () => pattern.dispose(), [pattern]);
 
+  // Uploaded image, if any — mirrors ScreenMesh's loader.
+  const [uploaded, setUploaded] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    if (!contentUrl) {
+      setUploaded(null);
+      return;
+    }
+    const loader = new THREE.TextureLoader();
+    let active = true;
+    loader.load(contentUrl, (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      if (active) setUploaded(t);
+    });
+    return () => {
+      active = false;
+    };
+  }, [contentUrl]);
+  const screenMap = uploaded ?? pattern;
+
   const size = sizeFromDiagonal(diagonal, aspectW, aspectH);
   const depthMax = tableReach(PERSONAS[personaId], tableHeight, size.height, tableBezel).depthMax;
+  // One reach origin per user around the table — the heatmap unions them.
   const heat = useMemo(
-    () => makeReachHeatmap(size.width, size.height, tableBezel, depthMax),
-    [size.width, size.height, tableBezel, depthMax],
+    () =>
+      makeReachHeatmap(
+        size.width,
+        size.height,
+        seatReachOrigins(tableSeats, size.width, size.height, tableBezel),
+        depthMax,
+      ),
+    [size.width, size.height, tableBezel, depthMax, tableSeats],
   );
   useEffect(() => () => heat.dispose(), [heat]);
 
@@ -120,7 +148,7 @@ function Table({
       {/* active screen, face-up */}
       <mesh position={[0, topY + 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[widthFt, depthFt]} />
-        <meshBasicMaterial map={pattern} toneMapped={false} />
+        <meshBasicMaterial map={screenMap} toneMapped={false} />
       </mesh>
       {/* reach heatmap, just above the screen */}
       {tableShowReach && (

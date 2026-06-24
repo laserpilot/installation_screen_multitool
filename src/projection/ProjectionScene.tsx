@@ -5,6 +5,7 @@ import { useConfigStore } from '../store/useConfigStore';
 import { fmtDist } from '../ui/units';
 import { f } from '../scene/scale';
 import { makeWallGrid } from '../scene/wallGrid';
+import { ProjectionFigure } from './ProjectionFigure';
 import { ProjectionFrustum } from './ProjectionFrustum';
 import { ProjectionSurface } from './ProjectionSurface';
 import {
@@ -88,9 +89,11 @@ export function ProjectionScene() {
         aspectH: s.projAspectH,
         lumens: s.projLumens,
         projectorCount: s.projectorCount,
+        stackEff: s.projStackEff,
         resW: s.projResW,
         resH: s.projResH,
         ambientFc: s.projAmbientFc,
+        screenGain: s.projScreenGain,
       }),
     [
       s.projThrowRatio,
@@ -99,9 +102,11 @@ export function ProjectionScene() {
       s.projAspectH,
       s.projLumens,
       s.projectorCount,
+      s.projStackEff,
       s.projResW,
       s.projResH,
       s.projAmbientFc,
+      s.projScreenGain,
     ],
   );
 
@@ -113,7 +118,9 @@ export function ProjectionScene() {
         aspectW: s.projAspectW,
         aspectH: s.projAspectH,
         lensAffIn: s.projLensAff,
-        imageCenterAffIn: s.projImageCenterAff,
+        lensShiftPct: s.projLensShiftPct,
+        lensOrigin: s.projLensOrigin,
+        tiltDeg: s.projTiltDeg,
       }),
     [
       s.projDistance,
@@ -121,13 +128,15 @@ export function ProjectionScene() {
       s.projAspectW,
       s.projAspectH,
       s.projLensAff,
-      s.projImageCenterAff,
+      s.projLensShiftPct,
+      s.projLensOrigin,
+      s.projTiltDeg,
     ],
   );
 
   const tone = BAND_TONE[metrics.band];
   const distFt = ftFromIn(s.projDistance);
-  const imgCenterY = ftFromIn(s.projImageCenterAff);
+  const imgCenterY = geom.imageCenterFt;
   const halfW = metrics.widthFt / 2;
   const bandColor = fcToColor(metrics.footCandles);
 
@@ -157,6 +166,7 @@ export function ProjectionScene() {
           <Wall width={metrics.widthIn} />
           <ProjectionSurface geom={geom} footCandles={metrics.footCandles} />
           <ProjectionFrustum geom={geom} color={bandColor} />
+          {s.projShowFigure && <ProjectionFigure pos={[halfW + 1.5, 2]} />}
 
           {/* image width dimension just under the bottom edge */}
           <Line
@@ -176,7 +186,7 @@ export function ProjectionScene() {
             anchorX="center"
             anchorY="middle"
           >
-            {fmtDist(s.projWidth, units)} wide · {Math.round(metrics.footCandles)} fc
+            {fmtDist(s.projWidth, units)} wide · {Math.round(metrics.footCandles)} fc · {Math.round(metrics.footLamberts)} fL
           </Text>
 
           {/* throw distance along the floor */}
@@ -244,6 +254,12 @@ export function ProjectionScene() {
             <dd>{Math.round(metrics.footCandles)} fc</dd>
           </div>
           <div>
+            <dt>Luminance</dt>
+            <dd>
+              {Math.round(metrics.footLamberts)} fL · {Math.round(metrics.nits)} nits
+            </dd>
+          </div>
+          <div>
             <dt>Ambient contrast</dt>
             <dd>
               {metrics.contrastRatio === Infinity
@@ -263,9 +279,12 @@ export function ProjectionScene() {
           </div>
         </dl>
         <p className="dvled-note">
-          Throw ratio {s.projThrowRatio} · {s.projectorCount > 1 ? `${s.projectorCount} stacked · ` : ''}
-          brightness is the area-average; off-axis mounts brighten the near edge and dim the far one.
-          20 fc is the floor, 400+ is comfortably bright.
+          Throw ratio {s.projThrowRatio} ·{' '}
+          {s.projectorCount > 1
+            ? `${s.projectorCount} stacked @ ${Math.round(s.projStackEff * 100)}% (${(metrics.effectiveLumens / s.projLumens).toFixed(1)}× lumens) · `
+            : ''}
+          brightness is the area-average; lens shift keeps a clean rectangle while tilt
+          keystones it and brightens the near edge. 20 fc is the floor, 400+ is comfortably bright.
         </p>
       </div>
     </div>

@@ -1,8 +1,15 @@
 import { useMemo } from 'react';
-import { PERSONAS, TABLE_SURFACE_MAX, TABLE_SURFACE_MIN, type PersonaId } from '../ergonomics/constants';
+import {
+  PERSONAS,
+  TABLE_HEIGHT_PRESETS,
+  TABLE_SURFACE_MAX,
+  TABLE_SURFACE_MIN,
+  type PersonaId,
+} from '../ergonomics/constants';
 import { sizeFromDiagonal } from '../ergonomics/engine';
 import { tableVerdict } from '../ergonomics/tableEngine';
 import { useConfigStore } from '../store/useConfigStore';
+import { ContentUpload } from '../ui/ContentUpload';
 import { fmtLen, fromInches, lenUnit, toInches } from '../ui/units';
 
 const LEVEL_LABEL = { good: 'Good', caution: 'Caution', bad: 'Bad idea' } as const;
@@ -92,6 +99,18 @@ export function TableControls() {
             ADA seated-accessible work surface is {TABLE_SURFACE_MIN}–{TABLE_SURFACE_MAX}" — a
             wheelchair can pull under in that range.
           </p>
+          <span className="seg presets">
+            {TABLE_HEIGHT_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                className={Math.abs(tableHeight - p.in) < 0.5 ? 'on' : ''}
+                title={`${p.in}" — ${fmtLen(p.in, units)}`}
+                onClick={() => set('tableHeight', p.in)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </span>
         </div>
 
         <div className="field">
@@ -182,6 +201,9 @@ export function TableControls() {
             />
           </span>
         </label>
+
+        <h2>Content</h2>
+        <ContentUpload />
       </div>
 
       <div className="panel verdict">

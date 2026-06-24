@@ -30,6 +30,10 @@ function round(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
 export function ProjectionControls() {
   const s = useConfigStore();
   const units = s.units;
@@ -52,6 +56,30 @@ export function ProjectionControls() {
     } else {
       s.set('projWidth', widthFromDistance(s.projDistance, tr));
     }
+  }
+
+  // Aspect ↔ resolution lock. When locked, editing the resolution rewrites the
+  // aspect to its gcd-reduced ratio; editing the aspect keeps the pixel width and
+  // recomputes the pixel height so the two never drift apart.
+  function deriveAspectFromRes(w: number, h: number) {
+    const g = gcd(w, h) || 1;
+    s.set('projAspectW', Math.round(w / g));
+    s.set('projAspectH', Math.round(h / g));
+  }
+  function setAspect(w: number, h: number) {
+    s.set('projAspectW', w);
+    s.set('projAspectH', h);
+    if (s.projResLock && w > 0 && h > 0) {
+      s.set('projResH', Math.round(s.projResW * (h / w)));
+    }
+  }
+  function setResW(w: number) {
+    s.set('projResW', w);
+    if (s.projResLock && w > 0 && s.projResH > 0) deriveAspectFromRes(w, s.projResH);
+  }
+  function setResH(h: number) {
+    s.set('projResH', h);
+    if (s.projResLock && h > 0 && s.projResW > 0) deriveAspectFromRes(s.projResW, h);
   }
 
   // Slider bounds in the active unit. Distance 1–60 ft; width 2–40 ft.
@@ -85,6 +113,7 @@ export function ProjectionControls() {
             s.set('projLumens', p.lumens);
             s.set('projResW', p.resW);
             s.set('projResH', p.resH);
+            if (s.projResLock) deriveAspectFromRes(p.resW, p.resH);
             setThrow(p.throw);
           }}
         >
@@ -131,20 +160,44 @@ export function ProjectionControls() {
         </span>
       </Row>
 
+      {s.projectorCount > 1 && (
+        <>
+          <Row label="Stack efficiency">
+            <span className="num-entry">
+              <input
+                type="number"
+                step={1}
+                min={0}
+                max={100}
+                value={Math.round(s.projStackEff * 100)}
+                onChange={(e) =>
+                  s.set('projStackEff', Math.min(1, Math.max(0, Number(e.target.value) / 100)))
+                }
+              />
+              <span className="unit">%</span>
+            </span>
+          </Row>
+          <p className="hint">
+            Lumens each added unit really contributes — real stacks lose ~10% to
+            alignment, so 2× ≈ 1.9×, not 2×.
+          </p>
+        </>
+      )}
+
       <Row label="Aspect">
         <span className="aspect">
           <input
             type="number"
             min={1}
             value={s.projAspectW}
-            onChange={(e) => s.set('projAspectW', Number(e.target.value))}
+            onChange={(e) => setAspect(Number(e.target.value), s.projAspectH)}
           />
           <span>:</span>
           <input
             type="number"
             min={1}
             value={s.projAspectH}
-            onChange={(e) => s.set('projAspectH', Number(e.target.value))}
+            onChange={(e) => setAspect(s.projAspectW, Number(e.target.value))}
           />
         </span>
       </Row>
@@ -155,15 +208,32 @@ export function ProjectionControls() {
             type="number"
             min={1}
             value={s.projResW}
-            onChange={(e) => s.set('projResW', Number(e.target.value))}
+            onChange={(e) => setResW(Number(e.target.value))}
           />
           <span>×</span>
           <input
             type="number"
             min={1}
             value={s.projResH}
-            onChange={(e) => s.set('projResH', Number(e.target.value))}
+            onChange={(e) => setResH(Number(e.target.value))}
           />
+        </span>
+      </Row>
+
+      <Row label="Link aspect ↔ res">
+        <span className="seg sm">
+          <button
+            className={s.projResLock ? 'on' : ''}
+            onClick={() => s.set('projResLock', true)}
+          >
+            Locked
+          </button>
+          <button
+            className={!s.projResLock ? 'on' : ''}
+            onClick={() => s.set('projResLock', false)}
+          >
+            Free
+          </button>
         </span>
       </Row>
 
@@ -267,25 +337,60 @@ export function ProjectionControls() {
         />
       </div>
 
+      <Row label="Lens origin">
+        <span className="seg sm">
+          <button
+            className={s.projLensOrigin === 'center' ? 'on' : ''}
+            onClick={() => s.set('projLensOrigin', 'center')}
+          >
+            Centre
+          </button>
+          <button
+            className={s.projLensOrigin === 'top' ? 'on' : ''}
+            onClick={() => s.set('projLensOrigin', 'top')}
+          >
+            Top
+          </button>
+        </span>
+      </Row>
+
       <div className="field">
         <div className="field-head">
-          <span className="row-label">Image centre height</span>
-          <span className="num-readout">{fmtLen(s.projImageCenterAff, units)}</span>
+          <span className="row-label">Vertical lens shift</span>
+          <span className="num-readout">{s.projLensShiftPct > 0 ? '+' : ''}{s.projLensShiftPct}%</span>
         </div>
         <input
           className="slider"
           type="range"
-          min={metric ? 30 : 12}
-          max={metric ? 360 : 144}
-          step={metric ? 2 : 1}
-          value={round(fromInches(s.projImageCenterAff, units))}
-          onChange={(e) =>
-            s.set('projImageCenterAff', toInches(Number(e.target.value), units))
-          }
+          min={-130}
+          max={130}
+          step={5}
+          value={s.projLensShiftPct}
+          onChange={(e) => s.set('projLensShiftPct', Number(e.target.value))}
         />
         <p className="hint">
-          Offset the lens from the image centre to see the keystone and brightness
-          falloff a high or low mount creates.
+          Optical shift — moves the image up (+) or down (−) with no keystone.
+          0% sits at the lens origin above.
+        </p>
+      </div>
+
+      <div className="field">
+        <div className="field-head">
+          <span className="row-label">Tilt</span>
+          <span className="num-readout">{s.projTiltDeg}°</span>
+        </div>
+        <input
+          className="slider"
+          type="range"
+          min={-30}
+          max={30}
+          step={1}
+          value={s.projTiltDeg}
+          onChange={(e) => s.set('projTiltDeg', Number(e.target.value))}
+        />
+        <p className="hint">
+          Physically tilting the projector — this is what bends the image into a
+          keystone.
         </p>
       </div>
 
@@ -312,6 +417,22 @@ export function ProjectionControls() {
 
       <h2>Surface</h2>
 
+      <Row label="Screen gain">
+        <span className="num-entry">
+          <input
+            type="number"
+            step={0.1}
+            min={0.1}
+            value={s.projScreenGain}
+            onChange={(e) => s.set('projScreenGain', Math.max(0.1, Number(e.target.value)))}
+          />
+          <span className="unit">×</span>
+        </span>
+      </Row>
+      <p className="hint">
+        Luminance (foot-Lamberts) = brightness (fc) × gain. 1.0 = matte white.
+      </p>
+
       <Row label="Show">
         <span className="seg sm">
           <button
@@ -330,6 +451,15 @@ export function ProjectionControls() {
       </Row>
 
       {s.projSurfaceView === 'content' && <ContentUpload />}
+
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={s.projShowFigure}
+          onChange={(e) => s.set('projShowFigure', e.target.checked)}
+        />
+        Show person for scale
+      </label>
     </div>
   );
 }

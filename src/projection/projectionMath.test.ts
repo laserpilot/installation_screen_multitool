@@ -19,9 +19,11 @@ const base: ProjectionInputs = {
   aspectH: 9,
   lumens: 4000,
   projectorCount: 1,
+  stackEff: 1, // ideal linear stacking unless a test overrides it
   resW: 1920,
   resH: 1200,
   ambientFc: 0,
+  screenGain: 1,
 };
 
 describe('throw relation', () => {
@@ -42,11 +44,26 @@ describe('projectionMetrics', () => {
     expect(m.band).toBe('too-dim');
   });
 
-  it('fc = effectiveLumens / area; stacking multiplies lumens', () => {
+  it('ideal stacking (eff=1) multiplies lumens linearly', () => {
     const one = projectionMetrics(base);
     const two = projectionMetrics({ ...base, projectorCount: 2 });
     expect(two.effectiveLumens).toBe(8000);
     expect(two.footCandles).toBeCloseTo(one.footCandles * 2, 6);
+  });
+
+  it('real stacking is sub-linear: each added unit contributes stackEff', () => {
+    const two = projectionMetrics({ ...base, projectorCount: 2, stackEff: 0.9 });
+    expect(two.effectiveLumens).toBeCloseTo(4000 * 1.9, 6); // not 8000
+    const three = projectionMetrics({ ...base, projectorCount: 3, stackEff: 0.9 });
+    expect(three.effectiveLumens).toBeCloseTo(4000 * (1 + 2 * 0.9), 6); // 2.8×
+  });
+
+  it('foot-Lamberts and nits scale with screen gain', () => {
+    const unity = projectionMetrics({ ...base, screenGain: 1 });
+    expect(unity.footLamberts).toBeCloseTo(unity.footCandles, 6);
+    expect(unity.nits).toBeCloseTo(unity.footCandles * 3.426, 4);
+    const hi = projectionMetrics({ ...base, screenGain: 1.5 });
+    expect(hi.footLamberts).toBeCloseTo(hi.footCandles * 1.5, 6);
   });
 
   it('resolution per foot tracks image size', () => {
@@ -76,11 +93,13 @@ const frustum: FrustumParams = {
   aspectW: 16,
   aspectH: 9,
   lensAffIn: 90,
-  imageCenterAffIn: 90,
+  lensShiftPct: 0,
+  lensOrigin: 'center',
+  tiltDeg: 0,
 };
 
 describe('frustumGeometry', () => {
-  it('on-axis (lens height == image centre) lands a clean rectangle', () => {
+  it('no shift / no tilt lands a clean rectangle centred on the lens', () => {
     const g = frustumGeometry(frustum);
     // width = 180/1.5 = 120 in = 10 ft → corners at ±5 ft in x
     expect(g.topLeft[0]).toBeCloseTo(-5, 4);
@@ -88,22 +107,40 @@ describe('frustumGeometry', () => {
     // rectangle: top edge level, bottom edge level, left/right vertical
     expect(g.topLeft[1]).toBeCloseTo(g.topRight[1], 4);
     expect(g.bottomLeft[1]).toBeCloseTo(g.bottomRight[1], 4);
-    expect(g.topLeft[0]).toBeCloseTo(g.bottomLeft[1] * 0 + -5, 4);
-    // height 10 * 9/16 = 5.625 ft, centred on 7.5 ft
+    // height 10 * 9/16 = 5.625 ft, centred on the lens (7.5 ft)
     expect(g.topLeft[1] - g.bottomLeft[1]).toBeCloseTo(5.625, 3);
-    expect((g.topLeft[1] + g.bottomLeft[1]) / 2).toBeCloseTo(7.5, 3);
+    expect(g.imageCenterFt).toBeCloseTo(7.5, 3);
     // all corners on the wall plane
     for (const c of [g.topLeft, g.topRight, g.bottomRight, g.bottomLeft]) {
       expect(c[2]).toBeCloseTo(0, 6);
     }
   });
 
-  it('raising the lens above centre produces a keystone (wider at the bottom)', () => {
-    const g = frustumGeometry({ ...frustum, lensAffIn: 150 });
+  it('lens shift moves the image with NO keystone (edges stay equal width)', () => {
+    const up = frustumGeometry({ ...frustum, lensShiftPct: 80 });
+    const topW = up.topRight[0] - up.topLeft[0];
+    const botW = up.bottomRight[0] - up.bottomLeft[0];
+    expect(botW).toBeCloseTo(topW, 4); // rectangle preserved
+    expect(up.imageCenterFt).toBeGreaterThan(7.5); // +% raises the image
+    const down = frustumGeometry({ ...frustum, lensShiftPct: -80 });
+    expect(down.imageCenterFt).toBeLessThan(7.5); // −% lowers it
+    // ±100% should move the centre by a full half-height (5.625/2 ft)
+    const full = frustumGeometry({ ...frustum, lensShiftPct: 100 });
+    expect(full.imageCenterFt - 7.5).toBeCloseTo(5.625 / 2, 3);
+  });
+
+  it('tilt is what produces the keystone', () => {
+    const g = frustumGeometry({ ...frustum, tiltDeg: 10 });
     const topW = g.topRight[0] - g.topLeft[0];
     const botW = g.bottomRight[0] - g.bottomLeft[0];
-    // projecting downward from above: far (bottom) edge spreads wider
-    expect(botW).toBeGreaterThan(topW);
+    expect(Math.abs(botW - topW)).toBeGreaterThan(0.05); // bent into a keystone
+  });
+
+  it("'top' lens origin hangs the image below the lens at 0% shift", () => {
+    const g = frustumGeometry({ ...frustum, lensOrigin: 'top' });
+    // top edge sits at the lens height; whole image is below it
+    expect(g.topLeft[1]).toBeCloseTo(7.5, 3);
+    expect(g.imageCenterFt).toBeLessThan(7.5);
   });
 });
 
@@ -126,8 +163,9 @@ describe('illuminanceField', () => {
     expect(mean).toBeCloseTo(100, 2);
   });
 
-  it('mean stays at nominal fc even when off-axis introduces a gradient', () => {
-    const g = frustumGeometry({ ...frustum, lensAffIn: 156 });
+  it('mean stays at nominal fc even when shift introduces a gradient', () => {
+    // shift puts the lens off the image centre → near edge brighter, far dimmer
+    const g = frustumGeometry({ ...frustum, lensShiftPct: 100 });
     const field = illuminanceField(g, 100, 16);
     expect(field.max).toBeGreaterThan(field.min); // real gradient
     const mean =
