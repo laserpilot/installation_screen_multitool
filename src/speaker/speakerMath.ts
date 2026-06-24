@@ -530,10 +530,30 @@ export interface CoverageField {
   audibleAreaSqFt: number;
 }
 
+/** Where a speaker's beam actually lands on the ear plane: the centre point its
+ *  axis hits and a footprint radius from the coverage angle. This is what frames
+ *  the map — NOT the free-field on-axis throw, which is huge for an efficient
+ *  unit yet irrelevant when it fires down into the floor a few feet away. */
+function earPlaneFootprint(
+  B: SpeakerBasis,
+  earFt: number,
+): { cx: number; cz: number; r: number } {
+  const fy = B.forward[1];
+  // Distance along the aim to the ear plane: real when firing down onto it,
+  // otherwise a bounded forward extent for level/upward aims.
+  let along = fy < -0.05 ? (earFt - B.pos[1]) / fy : 18;
+  along = Math.min(Math.max(along, 2), 60);
+  const cx = B.pos[0] + B.forward[0] * along;
+  const cz = B.pos[2] + B.forward[2] * along;
+  const half = Math.min(Math.max(B.halfHRad, B.halfVRad), 1.25);
+  return { cx, cz, r: Math.min(along * Math.tan(half) + 3, 40) };
+}
+
 /**
  * Score a horizontal plane at ear height by the combined level a listener's ears
- * would meet at each cell. Centred on the speaker cluster and sized to its spread
- * plus the longest design throw, so the map frames every unit's coverage.
+ * would meet at each cell. Framed to where the beams land on the ear plane (each
+ * speaker's footprint plus the unit itself), so the map stays tight around the
+ * actual coverage instead of the speakers' free-field reach.
  */
 export function coverageField(
   units: SpeakerUnit[],
@@ -544,19 +564,22 @@ export function coverageField(
   const earFt = ftFromIn(earHeightIn);
   const bases = units.map(makeBasis);
 
-  // Frame the cluster: bounding box of the speakers + the longest design throw.
-  const xs = units.map((s) => ftFromIn(s.xIn));
-  const zs = units.map((s) => ftFromIn(s.zIn));
-  const cx = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 0;
-  const cz = zs.length ? (Math.min(...zs) + Math.max(...zs)) / 2 : 0;
-  const spread = Math.max(
-    xs.length ? Math.max(...xs) - Math.min(...xs) : 0,
-    zs.length ? Math.max(...zs) - Math.min(...zs) : 0,
-  );
-  const reach = bases.length
-    ? Math.max(...bases.map((B) => designThrowFt(B, u.minDba)))
-    : 8;
-  const sizeFt = Math.max(spread + reach * 1.4, 16);
+  // Bounding box of every speaker's ear-plane footprint and its own position.
+  let bMinX = Infinity, bMaxX = -Infinity, bMinZ = Infinity, bMaxZ = -Infinity;
+  for (const B of bases) {
+    const fp = earPlaneFootprint(B, earFt);
+    bMinX = Math.min(bMinX, fp.cx - fp.r, B.pos[0]);
+    bMaxX = Math.max(bMaxX, fp.cx + fp.r, B.pos[0]);
+    bMinZ = Math.min(bMinZ, fp.cz - fp.r, B.pos[2]);
+    bMaxZ = Math.max(bMaxZ, fp.cz + fp.r, B.pos[2]);
+  }
+  if (!bases.length) {
+    bMinX = -8; bMaxX = 8; bMinZ = -8; bMaxZ = 8;
+  }
+  const cx = (bMinX + bMaxX) / 2;
+  const cz = (bMinZ + bMaxZ) / 2;
+  // Square the grid around that box, with a small margin and a sane clamp.
+  const sizeFt = Math.min(Math.max(Math.max(bMaxX - bMinX, bMaxZ - bMinZ) + 4, 14), 80);
   const minX = cx - sizeFt / 2;
   const minZ = cz - sizeFt / 2;
   const cell = sizeFt / n;

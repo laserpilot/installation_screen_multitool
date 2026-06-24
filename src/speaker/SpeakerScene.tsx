@@ -75,15 +75,18 @@ function DimLine({ a, b, label }: { a: V3; b: V3; label: string }) {
 /** A simple standing listener at the listening position, tinted by the verdict
  *  tone, with a floating level label at head height. */
 function Listener({ x, z, earFt, color, label }: { x: number; z: number; earFt: number; color: string; label: string }) {
-  const bodyH = earFt * 0.62;
+  // Body stands on the floor (base at y=0); head sits on top so the ears land
+  // near `earFt`, the height the level is sampled at.
+  const headR = 0.34;
+  const bodyH = Math.max(earFt - headR, 1);
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, earFt * 0.5, 0]}>
+      <mesh position={[0, bodyH / 2, 0]}>
         <cylinderGeometry args={[0.28, 0.34, bodyH, 16]} />
         <meshStandardMaterial color={color} />
       </mesh>
-      <mesh position={[0, earFt * 0.5 + bodyH / 2 + 0.32, 0]}>
-        <sphereGeometry args={[0.3, 18, 18]} />
+      <mesh position={[0, bodyH + headR * 0.7, 0]}>
+        <sphereGeometry args={[headR, 18, 18]} />
         <meshStandardMaterial color={color} />
       </mesh>
       {/* ground ring marking the spot */}
@@ -150,10 +153,10 @@ export function SpeakerScene() {
   const half = field.sizeFt / 2;
   const cxF = field.minX + half;
   const czF = field.minZ + half;
-  const camX = cxF - (half + 6);
-  const camY = Math.max(maxMountY + 5, field.sizeFt * 0.8);
-  const camZ = czF + half + 8;
-  const target: V3 = [cxF, Math.max(2, earFt), czF];
+  const camX = cxF - (half * 0.95 + 4);
+  const camY = Math.max(maxMountY + 3, field.sizeFt * 0.65);
+  const camZ = czF + half * 0.95 + 5;
+  const target: V3 = [cxF, Math.max(2, earFt * 0.8), czF];
 
   const fmtArea = (sqft: number) =>
     units === 'metric' ? `${(sqft * 0.092903).toFixed(1)} m²` : `${Math.round(sqft)} ft²`;
