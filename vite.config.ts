@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // GitHub Pages serves project sites under /<repo>/, so the production build
 // needs that base. Dev stays at '/'.
-const REPO = 'installation_screen_multitool'
+const REPO = 'interactive-installation-multitool'
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
