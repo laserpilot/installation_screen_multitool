@@ -19,7 +19,7 @@ export function makeTestPattern(
 }
 
 /**
- * The raw canvas behind {@link makeTestPattern}, for consumers (e.g. the dvLED
+ * The raw canvas behind {@link makeTestPattern}, for consumers (e.g. the LED Display
  * WebGL preview) that need a DOM image source rather than a Three texture.
  */
 export function makeTestPatternCanvas(

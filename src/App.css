@@ -154,7 +154,7 @@ button.ghost { width: 100%; margin-top: 6px; background: transparent; }
 .num-readout { font-variant-numeric: tabular-nums; font-weight: 600; }
 .seg.tabs button { padding: 6px 14px; }
 
-/* ---- dvLED preview ---- */
+/* ---- LED Display preview ---- */
 .dvled-stage { position: absolute; inset: 0; display: flex; flex-direction: column; background: #06080b; }
 .dvled-frame {
   position: relative;

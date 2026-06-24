@@ -52,7 +52,7 @@ export interface ConfigState {
   strictness: Strictness;
   contentUrl: string | null;
 
-  // --- dvLED preview ---
+  // --- LED Display preview ---
   dvledDistance: number; // in (eye-to-wall for the preview tab)
   dvledFov: number; // deg, horizontal field of view shown
   fillFactor: number; // 0–1, LED emitter coverage of its cell (manual override)

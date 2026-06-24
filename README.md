@@ -2,13 +2,13 @@
 
 A browser tool for AV / experiential installers to sanity-check the physical layer
 of an interactive installation before anything gets mounted — across screens,
-projection, dvLED, depth sensors, and loudspeakers. Each tab runs a small,
+projection, LED Display, depth sensors, and loudspeakers. Each tab runs a small,
 unit-tested engine and renders it in a 3D scene:
 
 - **Monitor Placement** — touch reach (ADA), viewing angle, pixel pitch, with a
   "view from their eyes" first-person mode.
 - **Table Monitor** — horizontal/table touch: reach depth, ADA, seated access.
-- **dvLED preview** — viewing-distance preview of an LED wall at a given pitch.
+- **LED Display preview** — viewing-distance preview of an LED wall at a given pitch.
 - **Projection** — single-projector throw geometry + photometrics (foot-candles,
   contrast, edge-blended arrays).
 - **Sensor Coverage** — camera/depth-sensor FOV, range, and trackable zones.

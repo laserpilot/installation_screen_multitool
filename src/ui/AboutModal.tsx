@@ -12,7 +12,7 @@ const TABS: { name: string; blurb: string }[] = [
       'Horizontal / table touch surfaces: reach depth across the surface, ADA, and seated access.',
   },
   {
-    name: 'dvLED preview',
+    name: 'LED Display preview',
     blurb:
       'How an LED wall reads from a given viewing distance at a chosen pixel pitch — where it resolves cleanly vs shows its pixels.',
   },

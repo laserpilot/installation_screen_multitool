@@ -38,7 +38,7 @@ export default function App() {
   const isPlacement = appTab === 'placement';
 
   const tag = isDvled
-    ? 'dvLED viewing-distance preview'
+    ? 'LED Display viewing-distance preview'
     : isProjection
       ? 'single-projector throw & photometric simulator'
       : isTable
@@ -74,7 +74,7 @@ export default function App() {
               className={isDvled ? 'on' : ''}
               onClick={() => set('appTab', 'dvled')}
             >
-              dvLED preview
+              LED Display preview
             </button>
             <button
               className={isProjection ? 'on' : ''}

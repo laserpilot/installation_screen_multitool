@@ -1,4 +1,4 @@
-// A 2D scale reference drawn over the dvLED preview: a to-scale human figure
+// A 2D scale reference drawn over the LED Display preview: a to-scale human figure
 // standing at the foot of the wall, plus an auto-ranged scale bar. Both use the
 // same inches→pixels mapping the shader does, so they read true at any distance.
 

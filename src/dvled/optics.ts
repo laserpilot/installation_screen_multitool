@@ -1,4 +1,4 @@
-// Pure optics for the dvLED viewing-distance preview. No React, no WebGL —
+// Pure optics for the LED Display viewing-distance preview. No React, no WebGL —
 // just the geometry that the shader and the readout both consume.
 // Lengths in INCHES unless a name says otherwise. Mirrors the conventions in
 // ergonomics/engine.ts so the two tabs agree on px/° and the LED-wall rules.
