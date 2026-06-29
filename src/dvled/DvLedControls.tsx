@@ -26,18 +26,55 @@ function round(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-function gcd(a: number, b: number): number {
-  return b === 0 ? a : gcd(b, a % b);
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
-/** Reduce a width:height (in any unit) to a tidy integer ratio, e.g. 2:1, 16:9.
- *  Each side is clamped to ≥1 so a sub-0.5 dimension can't round to a 0 aspect
- *  (which collapses the screen size and hangs the test-pattern generator). */
-function reduceRatio(w: number, h: number): [number, number] {
-  const a = Math.max(1, Math.round(w));
-  const b = Math.max(1, Math.round(h));
-  const g = gcd(a, b) || 1;
-  return [a / g, b / g];
+const M_PER_IN = 0.0254;
+
+/** Free-typing length field for the LED wall. Metric shows METRES (walls are
+ *  metre-scale); imperial shows inches. Holds a local text draft so you can clear
+ *  it and type decimals freely, and commits to the store on blur / Enter —
+ *  ignoring empty or non-positive input. This avoids the per-keystroke store
+ *  rewrite (and inch-rounding) that made the old controlled field impossible to
+ *  edit, especially in metric. */
+function DimInput({
+  inches,
+  metric,
+  onCommit,
+}: {
+  inches: number;
+  metric: boolean;
+  onCommit: (inches: number) => void;
+}) {
+  const display = metric ? round2(inches * M_PER_IN) : round(inches);
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    if (draft === null) return;
+    const n = Number(draft);
+    if (draft.trim() !== '' && Number.isFinite(n) && n > 0) {
+      onCommit(metric ? n / M_PER_IN : n);
+    }
+    setDraft(null);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      style={{ width: 66 }}
+      value={draft ?? String(display)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+    />
+  );
 }
 
 export function DvLedControls() {
@@ -52,16 +89,17 @@ export function DvLedControls() {
   const distVal = round(fromInches(s.dvledDistance, units));
 
   // Size can be driven by the diagonal or by raw width × height.
-  const [sizeMode, setSizeMode] = useState<'diagonal' | 'wh'>('diagonal');
+  // W×H is the natural way to spec an LED wall, so it's the default size mode.
+  const [sizeMode, setSizeMode] = useState<'diagonal' | 'wh'>('wh');
   const wall = sizeFromDiagonal(s.diagonal, s.aspectW, s.aspectH);
-  // Set physical size from width/height (in): store the diagonal + use the raw
-  // dimensions as the aspect, so the ratio is exact.
+  // Set physical size from an exact width/height (inches): store the diagonal and
+  // use the raw dimensions themselves as the aspect ratio, so width/height read
+  // back exactly — no integer-ratio rounding (which quantized metric to 2.54 cm).
   const setWH = (wIn: number, hIn: number) => {
-    if (wIn <= 0 || hIn <= 0) return;
+    if (!(wIn > 0) || !(hIn > 0)) return;
     s.set('diagonal', Math.hypot(wIn, hIn));
-    const [aw, ah] = reduceRatio(wIn, hIn);
-    s.set('aspectW', aw);
-    s.set('aspectH', ah);
+    s.set('aspectW', wIn);
+    s.set('aspectH', hIn);
   };
 
   // Fill derived from the pitch (used when "Fill from pitch" is on).
@@ -108,16 +146,16 @@ export function DvLedControls() {
       <Row label="Size by">
         <span className="seg sm">
           <button
-            className={sizeMode === 'diagonal' ? 'on' : ''}
-            onClick={() => setSizeMode('diagonal')}
-          >
-            Diagonal
-          </button>
-          <button
             className={sizeMode === 'wh' ? 'on' : ''}
             onClick={() => setSizeMode('wh')}
           >
             W × H
+          </button>
+          <button
+            className={sizeMode === 'diagonal' ? 'on' : ''}
+            onClick={() => setSizeMode('diagonal')}
+          >
+            Diagonal
           </button>
         </span>
       </Row>
@@ -152,27 +190,11 @@ export function DvLedControls() {
           </Row>
         </>
       ) : (
-        <Row label={`Width × Height (${u})`}>
+        <Row label={`Width × Height (${metric ? 'm' : 'in'})`}>
           <span className="aspect">
-            <input
-              type="number"
-              min={1}
-              style={{ width: 66 }}
-              value={round(fromInches(wall.width, units))}
-              onChange={(e) =>
-                setWH(toInches(Number(e.target.value), units), wall.height)
-              }
-            />
+            <DimInput inches={wall.width} metric={metric} onCommit={(wIn) => setWH(wIn, wall.height)} />
             <span>×</span>
-            <input
-              type="number"
-              min={1}
-              style={{ width: 66 }}
-              value={round(fromInches(wall.height, units))}
-              onChange={(e) =>
-                setWH(wall.width, toInches(Number(e.target.value), units))
-              }
-            />
+            <DimInput inches={wall.height} metric={metric} onCommit={(hIn) => setWH(wall.width, hIn)} />
           </span>
         </Row>
       )}
