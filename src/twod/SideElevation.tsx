@@ -3,7 +3,7 @@ import { PERSONAS } from '../ergonomics/constants';
 import { sizeFromDiagonal } from '../ergonomics/engine';
 import { screenGeometry } from '../ergonomics/screenGeometry';
 import { useConfigStore } from '../store/useConfigStore';
-import { fmtDist, fmtLen } from '../ui/units';
+import { fmtDist, fmtLen, formatAspect } from '../ui/units';
 
 const DARK = '#1d2733';
 const ACCENT = '#2f6df0';
@@ -263,7 +263,7 @@ export function SideElevation() {
           x={mL + Dc + 4}
           y={mT}
           rows={[
-            ['Screen', `${Math.round(s.diagonal)}"  ${s.aspectW}:${s.aspectH}`],
+            ['Screen', `${Math.round(s.diagonal)}"  ${formatAspect(s.aspectW, s.aspectH)}`],
             ['W × H', `${fmtLen(size.width, units)} × ${fmtLen(size.height, units)}`],
             ['Mount', s.mountType === 'stand' ? 'Stand' : 'Wall'],
             ['Tilt', `${Math.round(s.tiltDeg)}°`],

@@ -2,6 +2,7 @@ import { PERSONAS, type PersonaId } from '../ergonomics/constants';
 import { useConfigStore } from '../store/useConfigStore';
 import { fromInches, lenUnit, toInches } from './units';
 import { ContentUpload } from './ContentUpload';
+import { DimensionControls } from './DimensionControls';
 
 const PRESETS: { label: string; diagonal: number; aspectW: number; aspectH: number }[] = [
   { label: '32" portrait kiosk', diagonal: 32, aspectW: 9, aspectH: 16 },
@@ -50,59 +51,7 @@ export function ControlPanel() {
         </select>
       </Row>
 
-      <Row label={`Diagonal (${u})`}>
-        <input
-          type="number"
-          min={1}
-          value={round(fromInches(s.diagonal, units))}
-          onChange={(e) => s.set('diagonal', toInches(Number(e.target.value), units))}
-        />
-      </Row>
-
-      <Row label="Orientation">
-        <span className="seg">
-          <button
-            className={s.aspectW >= s.aspectH ? 'on' : ''}
-            onClick={() => {
-              if (s.aspectW < s.aspectH) {
-                s.set('aspectW', s.aspectH);
-                s.set('aspectH', s.aspectW);
-              }
-            }}
-          >
-            Landscape
-          </button>
-          <button
-            className={s.aspectW < s.aspectH ? 'on' : ''}
-            onClick={() => {
-              if (s.aspectW > s.aspectH) {
-                s.set('aspectW', s.aspectH);
-                s.set('aspectH', s.aspectW);
-              }
-            }}
-          >
-            Portrait
-          </button>
-        </span>
-      </Row>
-
-      <Row label="Aspect">
-        <span className="aspect">
-          <input
-            type="number"
-            min={1}
-            value={s.aspectW}
-            onChange={(e) => s.set('aspectW', Number(e.target.value))}
-          />
-          <span>:</span>
-          <input
-            type="number"
-            min={1}
-            value={s.aspectH}
-            onChange={(e) => s.set('aspectH', Number(e.target.value))}
-          />
-        </span>
-      </Row>
+      <DimensionControls />
 
       <div className="field">
         <div className="field-head">

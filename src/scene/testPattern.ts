@@ -1,13 +1,5 @@
 import * as THREE from 'three';
-
-/** Reduce an aspect to a tidy integer ratio for the label, e.g. 144.1:80.9 → 16:9. */
-function tidyRatio(aw: number, ah: number): string {
-  const a = Math.max(1, Math.round(aw));
-  const b = Math.max(1, Math.round(ah));
-  const gcd = (x: number, y: number): number => (y === 0 ? x : gcd(y, x % y));
-  const g = gcd(a, b) || 1;
-  return `${a / g}:${b / g}`;
-}
+import { formatAspect } from '../ui/units';
 
 /**
  * Procedurally draw a recognizable broadcast-style test pattern sized to the
@@ -129,7 +121,7 @@ export function makeTestPatternCanvas(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `bold ${Math.round(Math.min(w, h) * 0.085)}px -apple-system, sans-serif`;
-  ctx.fillText(`${Math.round(diagonalIn)}"  ${tidyRatio(aw, ah)}`, cx, cy - r * 0.42);
+  ctx.fillText(`${Math.round(diagonalIn)}"  ${formatAspect(aw, ah)}`, cx, cy - r * 0.42);
   ctx.font = `${Math.round(Math.min(w, h) * 0.05)}px -apple-system, sans-serif`;
   ctx.fillText('TEST PATTERN', cx, cy + r * 0.45);
 

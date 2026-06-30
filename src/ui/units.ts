@@ -31,3 +31,14 @@ export function fromInches(inches: number, units: Units): number {
 export function lenUnit(units: Units): string {
   return units === 'metric' ? 'cm' : 'in';
 }
+
+/** Reduce an aspect to a tidy integer ratio for labels, e.g. 144.1:80.9 → "16:9".
+ *  Unlocked width/height edits store exact float dimensions as the aspect, so raw
+ *  values aren't display-ready. */
+export function formatAspect(aspectW: number, aspectH: number): string {
+  const a = Math.max(1, Math.round(aspectW));
+  const b = Math.max(1, Math.round(aspectH));
+  const gcd = (x: number, y: number): number => (y === 0 ? x : gcd(y, x % y));
+  const g = gcd(a, b) || 1;
+  return `${a / g}:${b / g}`;
+}

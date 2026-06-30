@@ -318,6 +318,26 @@ button.ghost { width: 100%; margin-top: 6px; background: transparent; }
 .num-entry input { width: 72px; text-align: right; }
 .num-entry .unit { color: var(--muted); font-size: 12px; }
 
+/* ---- shared dimension control (Width/Height/Diagonal + aspect lock) ---- */
+.dims { display: flex; flex-direction: column; gap: 7px; margin: 7px 0; }
+.dims-head { display: flex; align-items: center; justify-content: space-between; }
+.dims-lock {
+  font-size: 12px; padding: 3px 9px; background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 6px; color: var(--muted);
+}
+.dims-lock.on { color: var(--text); border-color: var(--accent); }
+.dims-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dims-field { display: inline-flex; align-items: center; gap: 5px; }
+.dims-field input { text-align: right; }
+.dims-field .unit { color: var(--muted); font-size: 12px; width: 16px; }
+.dims-aspect { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.dims-ratio { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 40px; }
+.dims-swap {
+  padding: 3px 9px; background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 6px; color: var(--text);
+}
+.dims-chips button { font-size: 11px; }
+
 /* ---- Save / Share menu ---- */
 .save-menu { position: relative; display: inline-flex; align-items: center; gap: 8px; }
 .save-dropdown {

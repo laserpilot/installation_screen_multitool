@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { sizeFromDiagonal } from '../ergonomics/engine';
 import { useConfigStore } from '../store/useConfigStore';
 import { ContentUpload } from '../ui/ContentUpload';
-import { fmtDist, fromInches, lenUnit, toInches } from '../ui/units';
+import { DimensionControls } from '../ui/DimensionControls';
+import { fmtDist, fromInches, toInches } from '../ui/units';
 import { emitterWidthForPitch, pitchFillFraction } from './optics';
 
 // LED-wall presets — diagonal in inches + a typical fine/coarse pitch.
@@ -26,61 +26,9 @@ function round(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-const M_PER_IN = 0.0254;
-
-/** Free-typing length field for the LED wall. Metric shows METRES (walls are
- *  metre-scale); imperial shows inches. Holds a local text draft so you can clear
- *  it and type decimals freely, and commits to the store on blur / Enter —
- *  ignoring empty or non-positive input. This avoids the per-keystroke store
- *  rewrite (and inch-rounding) that made the old controlled field impossible to
- *  edit, especially in metric. */
-function DimInput({
-  inches,
-  metric,
-  onCommit,
-}: {
-  inches: number;
-  metric: boolean;
-  onCommit: (inches: number) => void;
-}) {
-  const display = metric ? round2(inches * M_PER_IN) : round(inches);
-  const [draft, setDraft] = useState<string | null>(null);
-
-  const commit = () => {
-    if (draft === null) return;
-    const n = Number(draft);
-    if (draft.trim() !== '' && Number.isFinite(n) && n > 0) {
-      onCommit(metric ? n / M_PER_IN : n);
-    }
-    setDraft(null);
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      style={{ width: 66 }}
-      value={draft ?? String(display)}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          commit();
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
-    />
-  );
-}
-
 export function DvLedControls() {
   const s = useConfigStore();
   const units = s.units;
-  const u = lenUnit(units);
   const metric = units === 'metric';
 
   // Distance slider bounds, in the active unit. 1–80 ft (≈0.3–24 m).
@@ -88,19 +36,7 @@ export function DvLedControls() {
   const distMax = metric ? 2400 : 960;
   const distVal = round(fromInches(s.dvledDistance, units));
 
-  // Size can be driven by the diagonal or by raw width × height.
-  // W×H is the natural way to spec an LED wall, so it's the default size mode.
-  const [sizeMode, setSizeMode] = useState<'diagonal' | 'wh'>('wh');
   const wall = sizeFromDiagonal(s.diagonal, s.aspectW, s.aspectH);
-  // Set physical size from an exact width/height (inches): store the diagonal and
-  // use the raw dimensions themselves as the aspect ratio, so width/height read
-  // back exactly — no integer-ratio rounding (which quantized metric to 2.54 cm).
-  const setWH = (wIn: number, hIn: number) => {
-    if (!(wIn > 0) || !(hIn > 0)) return;
-    s.set('diagonal', Math.hypot(wIn, hIn));
-    s.set('aspectW', wIn);
-    s.set('aspectH', hIn);
-  };
 
   // Fill derived from the pitch (used when "Fill from pitch" is on).
   const lockedFill = pitchFillFraction(s.pitchMm);
@@ -143,69 +79,17 @@ export function DvLedControls() {
         </select>
       </Row>
 
-      <Row label="Size by">
-        <span className="seg sm">
-          <button
-            className={sizeMode === 'wh' ? 'on' : ''}
-            onClick={() => setSizeMode('wh')}
-          >
-            W × H
-          </button>
-          <button
-            className={sizeMode === 'diagonal' ? 'on' : ''}
-            onClick={() => setSizeMode('diagonal')}
-          >
-            Diagonal
-          </button>
-        </span>
-      </Row>
-
-      {sizeMode === 'diagonal' ? (
-        <>
-          <Row label={`Diagonal (${u})`}>
-            <input
-              type="number"
-              min={1}
-              value={round(fromInches(s.diagonal, units))}
-              onChange={(e) => s.set('diagonal', toInches(Number(e.target.value), units))}
-            />
-          </Row>
-
-          <Row label="Aspect">
-            <span className="aspect">
-              <input
-                type="number"
-                min={1}
-                value={round(s.aspectW)}
-                onChange={(e) => s.set('aspectW', Number(e.target.value))}
-              />
-              <span>:</span>
-              <input
-                type="number"
-                min={1}
-                value={round(s.aspectH)}
-                onChange={(e) => s.set('aspectH', Number(e.target.value))}
-              />
-            </span>
-          </Row>
-        </>
-      ) : (
-        <Row label={`Width × Height (${metric ? 'm' : 'in'})`}>
-          <span className="aspect">
-            <DimInput inches={wall.width} metric={metric} onCommit={(wIn) => setWH(wIn, wall.height)} />
-            <span>×</span>
-            <DimInput inches={wall.height} metric={metric} onCommit={(hIn) => setWH(wall.width, hIn)} />
-          </span>
-        </Row>
-      )}
-
-      {offGrid && (
-        <p className="hint warn">
-          ⚠ LED cabinets are usually 0.5 m modules. This wall (~{wM.toFixed(2)} × {hM.toFixed(2)} m)
-          isn't on a 0.5 m grid — nearest standard build is {nearestM(wM).toFixed(1)} × {nearestM(hM).toFixed(1)} m.
-          Off-grid sizes typically need custom panels, masking, or black bars — check the panel spec.
-        </p>
-      )}
+      <DimensionControls
+        note={
+          offGrid && (
+            <p className="hint warn">
+              ⚠ LED cabinets are usually 0.5 m modules. This wall (~{wM.toFixed(2)} × {hM.toFixed(2)} m)
+              isn't on a 0.5 m grid — nearest standard build is {nearestM(wM).toFixed(1)} × {nearestM(hM).toFixed(1)} m.
+              Off-grid sizes typically need custom panels, masking, or black bars — check the panel spec.
+            </p>
+          )
+        }
+      />
 
       <Row label="Pixel pitch (mm)">
         <input

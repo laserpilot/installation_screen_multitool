@@ -10,7 +10,8 @@ import { sizeFromDiagonal } from '../ergonomics/engine';
 import { tableVerdict } from '../ergonomics/tableEngine';
 import { useConfigStore } from '../store/useConfigStore';
 import { ContentUpload } from '../ui/ContentUpload';
-import { fmtLen, fromInches, lenUnit, toInches } from '../ui/units';
+import { DimensionControls } from '../ui/DimensionControls';
+import { fmtLen, fromInches, toInches } from '../ui/units';
 
 const PERSONA_IDS: PersonaId[] = ['adult', 'child', 'wheelchair'];
 
@@ -45,7 +46,6 @@ export function TableControls() {
   const strictness = useConfigStore((s) => s.strictness);
   const set = useConfigStore((s) => s.set);
 
-  const u = lenUnit(units);
   const metric = units === 'metric';
 
   const v = useMemo(
@@ -132,26 +132,15 @@ export function TableControls() {
         </div>
 
         <h2>Screen</h2>
-        <Row label={`Diagonal (${u})`}>
-          <input
-            type="number"
-            min={1}
-            value={round(fromInches(diagonal, units))}
-            onChange={(e) => set('diagonal', toInches(Number(e.target.value), units))}
-          />
-        </Row>
-        <Row label="Aspect">
-          <span className="aspect">
-            <input type="number" min={1} value={aspectW} onChange={(e) => set('aspectW', Number(e.target.value))} />
-            <span>:</span>
-            <input type="number" min={1} value={aspectH} onChange={(e) => set('aspectH', Number(e.target.value))} />
-          </span>
-        </Row>
-        <p className="hint">
-          Laid flat, the screen's shorter dimension lies away from you — that's the{' '}
-          <strong>{fmtLen(v.depth, units)}</strong> you reach across. Swap the aspect to
-          rotate it.
-        </p>
+        <DimensionControls
+          note={
+            <p className="hint">
+              Laid flat, the screen's shorter dimension lies away from you — that's the{' '}
+              <strong>{fmtLen(v.depth, units)}</strong> you reach across. Swap the aspect to
+              rotate it.
+            </p>
+          }
+        />
 
         <Row label="Horizontal pixels">
           <input

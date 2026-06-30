@@ -20,7 +20,7 @@ import {
 } from '../sensor/sensorMath';
 import { listenerVerdict, makeBasis, USE_CASES } from '../speaker/speakerMath';
 import { type AppTab, type ConfigState } from '../store/useConfigStore';
-import { fmtDist, fmtLen } from '../ui/units';
+import { fmtDist, fmtLen, formatAspect } from '../ui/units';
 
 export type Tone = 'good' | 'caution' | 'bad';
 
@@ -77,7 +77,7 @@ export function buildSpecModel(s: ConfigState): SpecModel {
     id: 'placement',
     title: TAB_TITLE.placement,
     rows: [
-      ['Screen', `${Math.round(s.diagonal)}"  ${s.aspectW}:${s.aspectH}`],
+      ['Screen', `${Math.round(s.diagonal)}"  ${formatAspect(s.aspectW, s.aspectH)}`],
       ['Active area (W × H)', `${fmtLen(size.width, u)} × ${fmtLen(size.height, u)}`],
       ['Mounting', s.mountType === 'stand' ? 'Stand / podium' : 'Wall'],
       ['Mount height (bottom)', fmtLen(s.mountBottom, u)],
@@ -99,7 +99,7 @@ export function buildSpecModel(s: ConfigState): SpecModel {
     id: 'table',
     title: TAB_TITLE.table,
     rows: [
-      ['Screen', `${Math.round(s.diagonal)}"  ${s.aspectW}:${s.aspectH}`],
+      ['Screen', `${Math.round(s.diagonal)}"  ${formatAspect(s.aspectW, s.aspectH)}`],
       ['Surface height', fmtLen(s.tableHeight, u)],
       ['Bezel / frame', fmtLen(s.tableBezel, u)],
       ['People around table', String(s.tableSeats)],
@@ -113,7 +113,7 @@ export function buildSpecModel(s: ConfigState): SpecModel {
     id: 'dvled',
     title: TAB_TITLE.dvled,
     rows: [
-      ['Wall', `${Math.round(s.diagonal)}"  ${s.aspectW}:${s.aspectH}`],
+      ['Wall', `${Math.round(s.diagonal)}"  ${formatAspect(s.aspectW, s.aspectH)}`],
       ['Pixel pitch', `${s.pitchMm} mm`],
       ['Native resolution', `${round(led.nativeCols)} × ${round(led.nativeRows)}`],
       ['Viewer distance', fmtDist(s.dvledDistance, u)],
